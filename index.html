@@ -162,6 +162,11 @@
     .stats-row{grid-template-columns:1fr 1fr}
     .item-row{grid-template-columns:1fr 60px 80px 80px 28px}
   }
+  @media print{
+    body>*:not(#print-frame){display:none!important}
+    #print-frame{display:block!important;position:fixed;inset:0;background:#fff;z-index:9999;padding:24px;overflow:auto}
+  }
+  #print-frame{display:none}
 </style>
 </head>
 <body>
@@ -320,13 +325,36 @@
     </div>
     <input type="hidden" id="f-photo-data">
 
-    <div class="form-section">Допълнителни файлове и описание</div>
-    <div class="form-group full"><label>Щанци и накрайник <span class="note">(линк)</span></label><input type="text" id="f-dies" placeholder="https://..."></div>
+    <div class="form-section">Щанци и накрайник</div>
+    <div class="photo-zone">
+      <div class="photo-frame" id="dies-frame">
+        <span id="dies-placeholder-icon">✂️</span>
+        <img id="dies-preview" src="" alt="щанци">
+      </div>
+      <div>
+        <div class="photo-btns">
+          <label class="btn btn-sm" style="cursor:pointer;margin-bottom:0">
+            📷 Камера (телефон)
+            <input type="file" id="f-dies-cam" accept="image/*" capture="environment" style="display:none" onchange="loadDies(event)">
+          </label>
+          <label class="btn btn-sm" style="cursor:pointer">
+            🖼 От галерия / файл
+            <input type="file" id="f-dies-file" accept="image/*" style="display:none" onchange="loadDies(event)">
+          </label>
+          <button type="button" class="btn btn-sm btn-danger" onclick="clearDies()">✕ Изчисти</button>
+        </div>
+        <div class="photo-hint">Снимай или избери файл на щанцата/накрайника.</div>
+      </div>
+    </div>
+    <input type="hidden" id="f-dies-data">
+
+    <div class="form-section">Допълнителни и описание</div>
     <div class="form-group full"><label>Процес на изработка <span class="note">(линк)</span></label><input type="text" id="f-process" placeholder="https://..."></div>
     <div class="form-group full"><label>Описание</label><textarea id="f-desc" rows="2" placeholder="Кратко описание..."></textarea></div>
   </div>
   <div class="modal-footer">
     <button class="btn" onclick="closeCatalogModal()">Отказ</button>
+    <button class="btn" style="color:var(--info);border-color:#A8C8F0;background:var(--info-light)" onclick="if(editCat>=0){closeCatalogModal();printCatalogItem(editCat)}" title="Запази и разпечатай">🖨 Разпечатай</button>
     <button class="btn btn-primary" onclick="saveCatalog()">💾 Запази модела</button>
   </div>
 </div>
@@ -367,12 +395,14 @@
   </div>
   <div class="modal-footer">
     <button class="btn" onclick="closeOrderModal()">Отказ</button>
+    <button class="btn" style="color:var(--info);border-color:#A8C8F0;background:var(--info-light)" onclick="if(editOrd>=0){closeOrderModal();printOrder(editOrd)}" title="Разпечатай поръчката">🖨 Разпечатай</button>
     <button class="btn btn-primary" onclick="saveOrder()">💾 Запази поръчката</button>
   </div>
 </div>
 </div>
 
 <div id="toast"></div>
+<div id="print-frame"></div>
 
 <script>
 const FABRIC={l2:.0036,l3:.0071,l4:.0120,l5:.0181};
@@ -437,6 +467,35 @@ function setPhotoUI(data){
   else{img.src='';img.classList.remove('show');icon.style.display='';}
 }
 
+/* ── ЩАНЦИ СНИМКА ────────────────────────────────── */
+function loadDies(e){
+  const file=e.target.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=function(ev){
+    const data=ev.target.result;
+    document.getElementById('f-dies-data').value=data;
+    const img=document.getElementById('dies-preview');
+    img.src=data;img.classList.add('show');
+    document.getElementById('dies-placeholder-icon').style.display='none';
+  };
+  reader.readAsDataURL(file);
+}
+function clearDies(){
+  document.getElementById('f-dies-data').value='';
+  const img=document.getElementById('dies-preview');
+  img.src='';img.classList.remove('show');
+  document.getElementById('dies-placeholder-icon').style.display='';
+  document.getElementById('f-dies-cam').value='';
+  document.getElementById('f-dies-file').value='';
+}
+function setDiesUI(data){
+  document.getElementById('f-dies-data').value=data||'';
+  const img=document.getElementById('dies-preview');
+  const icon=document.getElementById('dies-placeholder-icon');
+  if(data){img.src=data;img.classList.add('show');icon.style.display='none';}
+  else{img.src='';img.classList.remove('show');icon.style.display='';}
+}
+
 /* ── КАТАЛОГ МОДАЛ ───────────────────────────────── */
 function openCatalogModal(idx){
   editCat=idx!==undefined?idx:-1;
@@ -446,10 +505,10 @@ function openCatalogModal(idx){
   document.getElementById('f-size').value=r?.size||'2cm';
   ['l2','l3','l4','l5'].forEach(k=>document.getElementById('f-'+k).value=r?.[k]??0);
   ['glue','ink','stamen','amort','speed','hourly'].forEach(k=>document.getElementById('f-'+k).value=r?.[k]??'');
-  document.getElementById('f-dies').value=r?.dies||'';
   document.getElementById('f-process').value=r?.process||'';
   document.getElementById('f-desc').value=r?.desc||'';
   setPhotoUI(r?.photo||'');
+  setDiesUI(r?.dies||'');
   if(r){sv('f-fabric',r.fabric);calcAll();}
   else['f-fabric','f-coeff','f-labor','f-cost','f-profit','f-final'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('catalog-modal').classList.add('open');
@@ -470,7 +529,7 @@ function saveCatalog(){
     glue:nv('f-glue'),ink:nv('f-ink'),stamen:nv('f-stamen'),amort:nv('f-amort'),
     speed,hourly,fabric,coeff,labor,cost,profit:cost*.5,final:cost*1.5,
     photo:document.getElementById('f-photo-data').value,
-    dies:document.getElementById('f-dies').value.trim(),
+    dies:document.getElementById('f-dies-data').value,
     process:document.getElementById('f-process').value.trim(),
     desc:document.getElementById('f-desc').value.trim()
   };
@@ -491,9 +550,9 @@ function renderCatalog(){
   document.getElementById('s-total').textContent=catalog.length;
   if(catalog.length){
     const avg=catalog.reduce((a,r)=>a+r.final,0)/catalog.length;
-    document.getElementById('s-avg').textContent=avg.toFixed(4)+' €';
-    document.getElementById('s-min').textContent=Math.min(...catalog.map(r=>r.final)).toFixed(4)+' €';
-    document.getElementById('s-max').textContent=Math.max(...catalog.map(r=>r.final)).toFixed(4)+' €';
+    document.getElementById('s-avg').textContent=avg.toFixed(2)+' €';
+    document.getElementById('s-min').textContent=Math.min(...catalog.map(r=>r.final)).toFixed(2)+' €';
+    document.getElementById('s-max').textContent=Math.max(...catalog.map(r=>r.final)).toFixed(2)+' €';
   }else['s-avg','s-min','s-max'].forEach(id=>document.getElementById(id).textContent='—');
   const tbody=document.getElementById('catalog-body');
   if(!rows.length){tbody.innerHTML='<tr><td colspan="15" class="no-data"><div class="no-icon">🌱</div>Няма намерени модели.</td></tr>';return}
@@ -502,26 +561,29 @@ function renderCatalog(){
     const thumb=r.photo
       ?`<img src="${escH(r.photo)}" style="width:46px;height:46px;object-fit:cover;border-radius:6px;cursor:pointer;border:1px solid var(--border)" onclick="openCatalogModal(${i})" title="Редактирай">`
       :`<div style="width:46px;height:46px;border-radius:6px;border:1px dashed var(--border2);display:flex;align-items:center;justify-content:center;font-size:20px;color:var(--text3)">🌸</div>`;
-    const di=r.dies?`<a href="${escH(r.dies)}" target="_blank" rel="noopener">📄</a>`:'—';
+    const diesThumb=r.dies
+      ?`<img src="${escH(r.dies)}" style="width:38px;height:38px;object-fit:cover;border-radius:5px;border:1px solid var(--border);cursor:pointer" onclick="openCatalogModal(${i})" title="Редактирай">`
+      :`<span style="color:var(--text3);font-size:12px">—</span>`;
     const pr=r.process?`<a href="${escH(r.process)}" target="_blank" rel="noopener">▶</a>`:'—';
     return`<tr>
       <td>${thumb}</td>
       <td class="td-model">${escH(r.model)}${r.desc?`<div class="td-sub">${escH(r.desc.substring(0,42))}${r.desc.length>42?'…':''}</div>`:''}</td>
       <td><span class="badge badge-size">${SZ[r.size]||r.size}</span></td>
       <td class="td-num">${r.fabric.toFixed(4)}</td>
-      <td class="td-num">${r.glue.toFixed(4)}</td>
-      <td class="td-num">${r.ink.toFixed(4)}</td>
-      <td class="td-num">${r.stamen.toFixed(4)}</td>
-      <td class="td-num">${r.amort.toFixed(4)}</td>
-      <td class="td-num">${r.labor.toFixed(4)}</td>
-      <td class="td-num">${r.cost.toFixed(4)}</td>
-      <td class="td-num profit">${r.profit.toFixed(4)}</td>
-      <td class="td-num final">${r.final.toFixed(4)}</td>
-      <td class="td-link">${di}</td>
+      <td class="td-num">${r.glue.toFixed(2)}</td>
+      <td class="td-num">${r.ink.toFixed(2)}</td>
+      <td class="td-num">${r.stamen.toFixed(2)}</td>
+      <td class="td-num">${r.amort.toFixed(2)}</td>
+      <td class="td-num">${r.labor.toFixed(2)}</td>
+      <td class="td-num">${r.cost.toFixed(2)}</td>
+      <td class="td-num profit">${r.profit.toFixed(2)}</td>
+      <td class="td-num final">${r.final.toFixed(2)}</td>
+      <td>${diesThumb}</td>
       <td class="td-link">${pr}</td>
       <td><div class="actions">
-        <button class="btn btn-sm btn-icon" onclick="openCatalogModal(${i})">✎</button>
-        <button class="btn btn-sm btn-danger btn-icon" onclick="deleteCatalog(${i})">✕</button>
+        <button class="btn btn-sm btn-icon" onclick="openCatalogModal(${i})" title="Редактирай">✎</button>
+        <button class="btn btn-sm btn-icon" onclick="printCatalogItem(${i})" title="Разпечатай" style="color:var(--info);border-color:#A8C8F0;background:var(--info-light)">🖨</button>
+        <button class="btn btn-sm btn-danger btn-icon" onclick="deleteCatalog(${i})" title="Изтрий">✕</button>
       </div></td>
     </tr>`;
   }).join('');
@@ -544,8 +606,8 @@ function renderItemRows(){
   }
   container.innerHTML=orderItems.map((item,i)=>{
     const cat=item.modelIdx!==''?catalog[parseInt(item.modelIdx)]:null;
-    const unitStr=cat?cat.final.toFixed(4)+' €':'';
-    const sumStr=cat?(cat.final*item.qty).toFixed(4)+' €':'';
+    const unitStr=cat?cat.final.toFixed(2)+' €':'';
+    const sumStr=cat?(cat.final*item.qty).toFixed(2)+' €':'';
     return`<div class="item-row">
       <select onchange="itemModelChanged(${i},this.value)">
         <option value="">— изберете модел —</option>
@@ -569,8 +631,8 @@ function recalcOrderTotals(){
       profit+=r.profit*item.qty;
     }
   });
-  document.getElementById('o-grand-total').textContent=total.toFixed(4)+' €';
-  document.getElementById('o-grand-profit').textContent=profit.toFixed(4)+' €';
+  document.getElementById('o-grand-total').textContent=total.toFixed(2)+' €';
+  document.getElementById('o-grand-profit').textContent=profit.toFixed(2)+' €';
 }
 
 /* ── ПОРЪЧКА МОДАЛ ───────────────────────────────── */
@@ -624,8 +686,8 @@ function renderOrders(){
   document.getElementById('o-s-total').textContent=orders.length;
   const rev=orders.reduce((a,r)=>a+(r.total||0),0);
   const prf=orders.reduce((a,r)=>a+(r.profit||0),0);
-  document.getElementById('o-s-revenue').textContent=orders.length?rev.toFixed(4)+' €':'—';
-  document.getElementById('o-s-profit').textContent=orders.length?prf.toFixed(4)+' €':'—';
+  document.getElementById('o-s-revenue').textContent=orders.length?rev.toFixed(2)+' €':'—';
+  document.getElementById('o-s-profit').textContent=orders.length?prf.toFixed(2)+' €':'—';
   document.getElementById('o-s-counts').textContent=orders.filter(r=>r.status==='В процес').length+' / '+orders.filter(r=>r.status==='Доставена').length;
   const tbody=document.getElementById('orders-body');
   if(!rows.length){tbody.innerHTML='<tr><td colspan="11" class="no-data"><div class="no-icon">📭</div>Няма намерени поръчки.</td></tr>';return}
@@ -637,9 +699,9 @@ function renderOrders(){
       <td>• ${escH(it.modelName)}</td>
       <td><span class="badge badge-size" style="font-size:10px">${escH(it.size)}</span></td>
       <td>${it.qty} бр.</td>
-      <td style="font-family:'DM Mono',monospace;color:var(--text2)">${it.unitPrice.toFixed(4)} €</td>
-      <td style="font-family:'DM Mono',monospace;color:var(--accent);font-weight:600">${it.lineTotal.toFixed(4)} €</td>
-      <td style="font-family:'DM Mono',monospace;color:var(--success)">${it.lineProfit.toFixed(4)} €</td>
+      <td style="font-family:'DM Mono',monospace;color:var(--text2)">${it.unitPrice.toFixed(2)} €</td>
+      <td style="font-family:'DM Mono',monospace;color:var(--accent);font-weight:600">${it.lineTotal.toFixed(2)} €</td>
+      <td style="font-family:'DM Mono',monospace;color:var(--success)">${it.lineProfit.toFixed(2)} €</td>
     </tr>`).join('');
     return`<tr class="ord-main-row">
       <td style="color:var(--text3);font-family:'DM Mono',monospace;font-size:12px">#${i+1}</td>
@@ -648,13 +710,14 @@ function renderOrders(){
       <td style="color:var(--text2)">${escH(r.phone||'—')}</td>
       <td style="font-size:12px;color:var(--text2)">${itemsCount} вид${itemsCount===1?'':'а'}</td>
       <td style="text-align:center;font-weight:600">${totalQty}</td>
-      <td class="td-num final">${(r.total||0).toFixed(4)}</td>
-      <td class="td-num profit">${(r.profit||0).toFixed(4)}</td>
+      <td class="td-num final">${(r.total||0).toFixed(2)}</td>
+      <td class="td-num profit">${(r.profit||0).toFixed(2)}</td>
       <td><span class="badge ${BADGE_MAP[r.status]||'badge-info'}">${escH(r.status)}</span></td>
       <td style="font-size:12px;color:var(--text2);max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escH(r.note||'—')}</td>
       <td><div class="actions">
-        <button class="btn btn-sm btn-icon" onclick="openOrderModal(${i})">✎</button>
-        <button class="btn btn-sm btn-danger btn-icon" onclick="deleteOrder(${i})">✕</button>
+        <button class="btn btn-sm btn-icon" onclick="openOrderModal(${i})" title="Редактирай">✎</button>
+        <button class="btn btn-sm btn-icon" onclick="printOrder(${i})" title="Разпечатай" style="color:var(--info);border-color:#A8C8F0;background:var(--info-light)">🖨</button>
+        <button class="btn btn-sm btn-danger btn-icon" onclick="deleteOrder(${i})" title="Изтрий">✕</button>
       </div></td>
     </tr>
     <tr class="ord-detail-row"><td colspan="11"><div class="ord-detail-inner">
@@ -725,6 +788,104 @@ function showToast(msg){
   const t=document.getElementById('toast');
   t.textContent=msg;t.style.opacity='1';t.style.transform='translateX(-50%) translateY(0)';
   clearTimeout(t._t);t._t=setTimeout(()=>{t.style.opacity='0';t.style.transform='translateX(-50%) translateY(20px)'},3500);
+}
+
+/* ── ПЕЧАТ ───────────────────────────────────────── */
+function printCatalogItem(i){
+  const r=catalog[i];
+  const photoHtml=r.photo?`<img src="${r.photo}" style="width:150px;height:150px;object-fit:cover;border-radius:8px;border:1px solid #ddd">`:
+    `<div style="width:150px;height:150px;border-radius:8px;border:2px dashed #ccc;display:flex;align-items:center;justify-content:center;font-size:44px">🌸</div>`;
+  const diesHtml=r.dies?`<img src="${r.dies}" style="width:110px;height:110px;object-fit:cover;border-radius:8px;border:1px solid #ddd">`:
+    `<div style="width:110px;height:110px;border-radius:8px;border:2px dashed #ccc;display:flex;align-items:center;justify-content:center;font-size:32px">✂️</div>`;
+  const rows=[
+    ['Размер',SZ[r.size]||r.size],
+    ['Слоеве 2/3/4/5 см',`${r.l2} / ${r.l3} / ${r.l4} / ${r.l5}`],
+    ['Плат €',r.fabric.toFixed(4)],['Лепило €',r.glue.toFixed(2)],
+    ['Мастила €',r.ink.toFixed(2)],['Тичинки €',r.stamen.toFixed(2)],
+    ['Амортизация €',r.amort.toFixed(2)],['Скорост (бр/час)',r.speed],
+    ['Цена на час €',Number(r.hourly).toFixed(2)],['Коефициент',r.coeff],
+    ['Труд €',r.labor.toFixed(2)],['Стойност €',r.cost.toFixed(2)],
+    ['Печалба 50% €',r.profit.toFixed(2)],['⭐ Крайна цена €',r.final.toFixed(2)],
+  ];
+  const tRows=rows.map(([k,v])=>`<tr><td style="padding:5px 10px;border-bottom:1px solid #eee;color:#666;font-size:13px;width:210px">${k}</td><td style="padding:5px 10px;border-bottom:1px solid #eee;font-size:13px;font-weight:500">${v}</td></tr>`).join('');
+  const pLink=r.process?`<p style="margin-top:8px;font-size:12px;color:#666">Процес: <a href="${escH(r.process)}">${escH(r.process)}</a></p>`:'';
+  openPrintFrame(`
+    <div style="font-family:sans-serif;max-width:780px;margin:0 auto">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px;padding-bottom:12px;border-bottom:2px solid #2D5016">
+        <div><div style="font-size:21px;font-weight:700;color:#2D5016">${escH(r.model)}</div>
+        <div style="font-size:12px;color:#888;margin-top:3px">${escH(r.desc||'')}</div></div>
+        <div style="font-size:11px;color:#aaa">Разпечатано: ${new Date().toLocaleDateString('bg-BG')}</div>
+      </div>
+      <div style="display:flex;gap:20px;flex-wrap:wrap;margin-bottom:18px">
+        <div><div style="font-size:11px;font-weight:700;color:#999;text-transform:uppercase;margin-bottom:5px">Снимка</div>${photoHtml}</div>
+        <div><div style="font-size:11px;font-weight:700;color:#999;text-transform:uppercase;margin-bottom:5px">Щанци и накрайник</div>${diesHtml}</div>
+        <div style="flex:1;min-width:240px"><table style="width:100%;border-collapse:collapse">${tRows}</table>${pLink}</div>
+      </div>
+      <div style="background:#EBF2E3;border:1px solid #C5DCA8;border-radius:8px;padding:14px 18px;display:flex;gap:28px">
+        <div><div style="font-size:10px;color:#4A7C28;font-weight:700;text-transform:uppercase">Стойност</div><div style="font-size:19px;font-weight:700;color:#2D5016">${r.cost.toFixed(2)} €</div></div>
+        <div><div style="font-size:10px;color:#4A7C28;font-weight:700;text-transform:uppercase">Печалба</div><div style="font-size:19px;font-weight:700;color:#276749">${r.profit.toFixed(2)} €</div></div>
+        <div><div style="font-size:10px;color:#4A7C28;font-weight:700;text-transform:uppercase">Крайна цена</div><div style="font-size:24px;font-weight:700;color:#2D5016">${r.final.toFixed(2)} €</div></div>
+      </div>
+    </div>`);
+}
+
+function printOrder(i){
+  const r=orders[i];
+  const iRows=(r.items||[]).map((it,j)=>`<tr style="background:${j%2?'#FAFAF8':'#fff'}">
+    <td style="padding:7px 10px;border-bottom:1px solid #eee;font-weight:500">${escH(it.modelName)}</td>
+    <td style="padding:7px 10px;border-bottom:1px solid #eee;color:#2D5016">${escH(it.size)}</td>
+    <td style="padding:7px 10px;border-bottom:1px solid #eee;text-align:center">${it.qty}</td>
+    <td style="padding:7px 10px;border-bottom:1px solid #eee;text-align:right;font-family:monospace">${it.unitPrice.toFixed(2)} €</td>
+    <td style="padding:7px 10px;border-bottom:1px solid #eee;text-align:right;font-family:monospace;font-weight:600;color:#2D5016">${it.lineTotal.toFixed(2)} €</td>
+    <td style="padding:7px 10px;border-bottom:1px solid #eee;text-align:right;font-family:monospace;color:#276749">${it.lineProfit.toFixed(2)} €</td>
+  </tr>`).join('');
+  const sc={'Нова':'#1A4F8A','В процес':'#B7791F','Готова':'#276749','Доставена':'#C0392B'}[r.status]||'#333';
+  const sb={'Нова':'#E8F1FB','В процес':'#FEF3DC','Готова':'#E6F4EE','Доставена':'#FDECEA'}[r.status]||'#f5f5f5';
+  openPrintFrame(`
+    <div style="font-family:sans-serif;max-width:780px;margin:0 auto">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;padding-bottom:12px;border-bottom:2px solid #2D5016">
+        <div>
+          <div style="font-size:11px;color:#aaa;text-transform:uppercase;letter-spacing:.5px">Поръчка #${i+1}</div>
+          <div style="font-size:21px;font-weight:700">${escH(r.client)}</div>
+          <div style="font-size:13px;color:#666">${escH(r.phone||'')}</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:13px;color:#888">Дата: <strong>${r.date||'—'}</strong></div>
+          <div style="margin-top:5px;display:inline-block;padding:3px 12px;border-radius:999px;font-size:12px;font-weight:700;background:${sb};color:${sc}">${escH(r.status)}</div>
+          <div style="font-size:11px;color:#bbb;margin-top:5px">Разпечатано: ${new Date().toLocaleDateString('bg-BG')}</div>
+        </div>
+      </div>
+      <table style="width:100%;border-collapse:collapse;margin-bottom:14px">
+        <thead><tr style="background:#F0EDE7">
+          <th style="padding:7px 10px;text-align:left;font-size:11px;color:#888;text-transform:uppercase">Модел</th>
+          <th style="padding:7px 10px;text-align:left;font-size:11px;color:#888;text-transform:uppercase">Размер</th>
+          <th style="padding:7px 10px;text-align:center;font-size:11px;color:#888;text-transform:uppercase">Бройка</th>
+          <th style="padding:7px 10px;text-align:right;font-size:11px;color:#888;text-transform:uppercase">Ед. цена</th>
+          <th style="padding:7px 10px;text-align:right;font-size:11px;color:#888;text-transform:uppercase">Сума</th>
+          <th style="padding:7px 10px;text-align:right;font-size:11px;color:#888;text-transform:uppercase">Печалба</th>
+        </tr></thead>
+        <tbody>${iRows}</tbody>
+      </table>
+      ${r.note?`<div style="background:#FEF3DC;border:1px solid #E8C97A;border-radius:6px;padding:10px 14px;margin-bottom:14px;font-size:13px;color:#7A5A10"><strong>Бележка:</strong> ${escH(r.note)}</div>`:''}
+      <div style="background:#EBF2E3;border:1px solid #C5DCA8;border-radius:8px;padding:14px 18px;display:flex;gap:28px;justify-content:flex-end">
+        <div style="text-align:right"><div style="font-size:10px;color:#4A7C28;font-weight:700;text-transform:uppercase">Обща печалба</div><div style="font-size:19px;font-weight:700;color:#276749">${(r.profit||0).toFixed(2)} €</div></div>
+        <div style="text-align:right"><div style="font-size:10px;color:#4A7C28;font-weight:700;text-transform:uppercase">За плащане</div><div style="font-size:25px;font-weight:700;color:#2D5016">${(r.total||0).toFixed(2)} €</div></div>
+      </div>
+    </div>`);
+}
+
+function openPrintFrame(html){
+  const frame=document.getElementById('print-frame');
+  frame.innerHTML=`<div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid #eee">
+    <button onclick="window.print()" style="padding:8px 18px;background:#2D5016;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600">🖨 Разпечатай</button>
+    <button onclick="closePrintFrame()" style="padding:8px 14px;background:#fff;border:1px solid #ccc;border-radius:8px;cursor:pointer;font-size:14px">✕ Затвори</button>
+  </div>${html}`;
+  frame.style.display='block';
+  frame.scrollIntoView({behavior:'smooth'});
+}
+function closePrintFrame(){
+  const f=document.getElementById('print-frame');
+  f.style.display='none';f.innerHTML='';
 }
 
 renderCatalog();
