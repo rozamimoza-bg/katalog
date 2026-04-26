@@ -239,7 +239,8 @@ textarea{resize:vertical;min-height:52px;line-height:1.5}
     <button class="btn btn-backup btn-sm" onclick="backupDownload()">💾 Бекъп</button>
     <label class="btn btn-restore btn-sm" style="cursor:pointer">📂 Вмъкни бекъп<input type="file" id="restore-input" accept=".json" style="display:none" onchange="backupRestore(event)"></label>
     <div class="hdr-sep"></div>
-    <button class="btn btn-sm" onclick="doLogout()" title="Изход" style="color:var(--danger)">🔒 Изход</button>
+    <button class="btn btn-sm" onclick="showChangePwdFromApp()" style="color:var(--info)">🔑 Парола</button>
+    <button class="btn btn-sm" onclick="doLogout()" style="color:var(--danger)">🔒 Изход</button>
   </div>
   <!-- Mobile hamburger -->
   <button class="mobile-menu-btn btn btn-sm" onclick="openMobileMenu()">☰ Меню</button>
