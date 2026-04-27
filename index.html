@@ -163,6 +163,33 @@ textarea{resize:vertical;min-height:52px;line-height:1.5}
 .itp-val{font-family:'DM Mono',monospace;font-size:14px;font-weight:700;color:var(--success)}
 
 .actions{display:flex;gap:3px;white-space:nowrap}
+/* ── SORTABLE COLUMNS ── */
+th.sortable{cursor:pointer;user-select:none;white-space:nowrap}
+th.sortable:hover{background:#E4E0D9;color:var(--text)}
+th.sortable.sort-asc,.sort-asc{color:var(--accent)}
+th.sortable.sort-desc{color:var(--accent)}
+.sort-icon{font-size:10px;margin-left:3px;opacity:.5}
+th.sortable.active .sort-icon{opacity:1}
+/* ── STICKY TABLE ── */
+.tbl-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;max-height:70vh;overflow-y:auto}
+.tbl-wrap table thead th{position:sticky;top:0;z-index:10;background:var(--surface2)}
+/* freeze first two columns (photo + name) */
+.tbl-wrap table thead th:nth-child(1),
+.tbl-wrap table thead th:nth-child(2){position:sticky;left:0;z-index:11;background:var(--surface2)}
+.tbl-wrap table thead th:nth-child(2){left:54px}
+.tbl-wrap table tbody td:nth-child(1),
+.tbl-wrap table tbody td:nth-child(2){position:sticky;left:0;background:var(--surface);z-index:5}
+.tbl-wrap table tbody td:nth-child(2){left:54px;box-shadow:2px 0 6px -2px rgba(0,0,0,.08)}
+tbody tr:hover td:nth-child(1),
+tbody tr:hover td:nth-child(2){background:#FAFAF8}
+
+/* ── LIGHTBOX ── */
+#lightbox{display:none;position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:5000;align-items:center;justify-content:center;cursor:zoom-out}
+#lightbox.open{display:flex}
+#lightbox img{max-width:92vw;max-height:88vh;border-radius:10px;box-shadow:0 8px 40px rgba(0,0,0,.5);object-fit:contain}
+#lightbox-close{position:absolute;top:16px;right:20px;color:#fff;font-size:32px;cursor:pointer;line-height:1;background:none;border:none;opacity:.8}
+#lightbox-close:hover{opacity:1}
+#lightbox-caption{position:absolute;bottom:18px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,.7);font-size:13px;white-space:nowrap}
 #toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--accent);color:#fff;padding:10px 18px;border-radius:var(--radius-lg);font-size:13px;font-weight:500;box-shadow:var(--shadow-md);z-index:999;opacity:0;transition:all .25s;white-space:nowrap;pointer-events:none}
 #print-frame{display:none}
 
@@ -279,6 +306,9 @@ textarea{resize:vertical;min-height:52px;line-height:1.5}
   </div>
   <div class="toolbar">
     <div class="search-wrap"><span class="search-icon">🔍</span><input type="text" id="cat-search" placeholder="Търси по модел..." oninput="renderCatalog()"></div>
+    <select class="filter-select" id="cat-cat-filter" onchange="renderCatalog()">
+      <option value="">Всички категории</option>
+    </select>
     <select class="filter-select" id="cat-size-filter" onchange="renderCatalog()">
       <option value="">Всички размери</option>
       <option value="2cm">2 см</option><option value="3cm">3 см</option>
@@ -288,13 +318,18 @@ textarea{resize:vertical;min-height:52px;line-height:1.5}
   <div class="tbl-card"><div class="tbl-wrap">
     <table>
       <thead><tr>
-        <th>Снимка</th><th>Модел ↗</th><th>Размер</th>
+        <th>Снимка</th>
+        <th class="sortable" onclick="sortCatalog('model')">Модел <span id="sort-model" class="sort-icon"></span></th>
+        <th class="sortable" onclick="sortCatalog('category')">Категория <span id="sort-category" class="sort-icon"></span></th>
+        <th class="sortable" onclick="sortCatalog('size')">Размер <span id="sort-size" class="sort-icon"></span></th>
         <th>Плат €</th><th>Лепило €</th><th>Мастила €</th><th>Тичинки €</th>
-        <th>Аморт. €</th><th>Труд €</th><th>Стойност €</th>
-        <th>Печалба €</th><th>Крайна цена €</th>
+        <th>Аморт. €</th><th>Труд €</th>
+        <th class="sortable" onclick="sortCatalog('cost')">Стойност € <span id="sort-cost" class="sort-icon"></span></th>
+        <th class="sortable" onclick="sortCatalog('profit')">Печалба € <span id="sort-profit" class="sort-icon"></span></th>
+        <th class="sortable" onclick="sortCatalog('final')">Крайна цена € <span id="sort-final" class="sort-icon"></span></th>
         <th>Щанци</th><th>Процес</th><th>Действия</th>
       </tr></thead>
-      <tbody id="catalog-body"><tr><td colspan="15" class="no-data"><div class="no-icon">🌱</div>Добавете нов модел.</td></tr></tbody>
+      <tbody id="catalog-body"><tr><td colspan="16" class="no-data"><div class="no-icon">🌱</div>Добавете нов модел.</td></tr></tbody>
     </table>
   </div></div>
 </div>
@@ -342,6 +377,16 @@ textarea{resize:vertical;min-height:52px;line-height:1.5}
   </div>
   <div class="form-grid">
     <div class="form-group full"><label>Наименование на модела</label><input type="text" id="f-model" placeholder="напр. Роза 001" autocomplete="off"></div>
+    <div class="form-group full">
+      <label>Категория</label>
+      <div style="display:flex;gap:6px">
+        <select id="f-category" style="flex:1" onchange="onCatSelectChange()">
+          <option value="">— без категория —</option>
+        </select>
+        <input type="text" id="f-category-new" placeholder="Нова категория..." style="flex:1" oninput="onCatNewInput()">
+      </div>
+      <div style="font-size:11px;color:var(--text3);margin-top:3px">Избери съществуваща или напиши нова</div>
+    </div>
     <div class="form-group"><label>Размер</label>
       <select id="f-size" onchange="calcFabric()">
         <option value="2cm">2 см</option><option value="3cm">3 см</option>
@@ -378,7 +423,7 @@ textarea{resize:vertical;min-height:52px;line-height:1.5}
 
     <div class="form-section">📷 Снимка на модела</div>
     <div class="photo-zone">
-      <div class="photo-frame"><span id="photo-placeholder-icon">🌸</span><img id="photo-preview" src="" alt="снимка"></div>
+      <div class="photo-frame"><span id="photo-placeholder-icon">🌸</span><img id="photo-preview" src="" alt="снимка" style="cursor:zoom-in" onclick="if(this.src)openLightbox(this.src,'Снимка на модела')"></div>
       <div>
         <div class="photo-btns">
           <label class="btn btn-sm" style="cursor:pointer">
@@ -394,7 +439,7 @@ textarea{resize:vertical;min-height:52px;line-height:1.5}
 
     <div class="form-section">✂️ Щанци и накрайник</div>
     <div class="photo-zone">
-      <div class="photo-frame"><span id="dies-placeholder-icon">✂️</span><img id="dies-preview" src="" alt="щанци"></div>
+      <div class="photo-frame"><span id="dies-placeholder-icon">✂️</span><img id="dies-preview" src="" alt="щанци" style="cursor:zoom-in" onclick="if(this.src)openLightbox(this.src,'Щанци и накрайник')"></div>
       <div>
         <div class="photo-btns">
           <label class="btn btn-sm" style="cursor:pointer">
@@ -462,6 +507,11 @@ textarea{resize:vertical;min-height:52px;line-height:1.5}
 
 <div id="toast"></div>
 <div id="print-frame"></div>
+<div id="lightbox" onclick="closeLightbox()">
+  <button id="lightbox-close" onclick="closeLightbox()">✕</button>
+  <img id="lightbox-img" src="" alt="">
+  <div id="lightbox-caption"></div>
+</div>
 
 <script>
 /* ══ ПАРОЛА ══════════════════════════════════════════ */
@@ -643,6 +693,8 @@ function openCatalogModal(idx){
   document.getElementById('f-desc').value=r?.desc||'';
   setPhotoUI(r?.photo||'');
   setDiesUI(r?.dies||'');
+  populateCategorySelect('f-category', r?.category||'');
+  document.getElementById('f-category-new').value='';
   if(r){document.getElementById('f-fabric').value=(r.fabric||0).toFixed(4);calcAll();}
   else{['f-fabric','f-coeff','f-labor','f-cost','f-profit','f-final'].forEach(id=>document.getElementById(id).value='');}
   document.getElementById('catalog-modal').classList.add('open');
@@ -650,6 +702,39 @@ function openCatalogModal(idx){
   setTimeout(()=>document.querySelector('#catalog-modal .modal').scrollTop=0,50);
 }
 function closeCatalogModal(){document.getElementById('catalog-modal').classList.remove('open')}
+
+/* Category helpers */
+function getCategories(){
+  const cats=new Set();
+  catalog.forEach(r=>{if(r.category&&r.category.trim())cats.add(r.category.trim())});
+  return [...cats].sort();
+}
+function populateCategorySelect(selId, current){
+  const sel=document.getElementById(selId);
+  const cats=getCategories();
+  sel.innerHTML='<option value="">— без категория —</option>'+cats.map(c=>`<option value="${escH(c)}"${c===current?'selected':''}>${escH(c)}</option>`).join('');
+}
+function updateCatCategoryFilter(){
+  const sel=document.getElementById('cat-cat-filter');
+  const cur=sel.value;
+  const cats=getCategories();
+  sel.innerHTML='<option value="">Всички категории</option>'+cats.map(c=>`<option value="${escH(c)}"${c===cur?'selected':''}>${escH(c)}</option>`).join('');
+}
+function onCatSelectChange(){
+  // when existing category chosen, clear the new-category field
+  if(document.getElementById('f-category').value)
+    document.getElementById('f-category-new').value='';
+}
+function onCatNewInput(){
+  // when typing new category, deselect existing
+  if(document.getElementById('f-category-new').value.trim())
+    document.getElementById('f-category').value='';
+}
+function getChosenCategory(){
+  const newVal=document.getElementById('f-category-new').value.trim();
+  if(newVal) return newVal;
+  return document.getElementById('f-category').value.trim();
+}
 
 function saveCatalog(){
   const model=document.getElementById('f-model').value.trim();
@@ -663,6 +748,7 @@ function saveCatalog(){
   const cost=fabric+nv('f-glue')+nv('f-ink')+nv('f-stamen')+nv('f-amort')+labor;
   const rec={
     model,size,l2,l3,l4,l5,
+    category:getChosenCategory(),
     glue:nv('f-glue'),ink:nv('f-ink'),stamen:nv('f-stamen'),amort:nv('f-amort'),
     speed,hourly,fabric,coeff,labor,cost,profit:cost*.5,final:cost*1.5,
     photo:document.getElementById('f-photo-data').value,
@@ -679,12 +765,44 @@ function deleteCatalog(i){
   catalog.splice(i,1);save();renderCatalog();
 }
 
+/* ══ СОРТИРАНЕ ═══════════════════════════════════════ */
+let sortCol='model', sortDir=1;
+function sortCatalog(col){
+  if(sortCol===col){sortDir*=-1;}else{sortCol=col;sortDir=1;}
+  renderCatalog();
+}
+function applySortIcons(){
+  ['model','category','size','cost','profit','final'].forEach(c=>{
+    const el=document.getElementById('sort-'+c);
+    if(!el)return;
+    el.textContent='';
+    el.closest('th').classList.remove('active');
+    if(c===sortCol){
+      el.textContent=sortDir===1?' ▲':' ▼';
+      el.closest('th').classList.add('active');
+    }
+  });
+}
+
 /* ══ КАТАЛОГ РЕНДЕР ══════════════════════════════════ */
 function renderCatalog(){
   if(!isLoggedIn())return;
+  updateCatCategoryFilter();
   const q=document.getElementById('cat-search').value.toLowerCase();
   const sf=document.getElementById('cat-size-filter').value;
-  const rows=catalog.filter(r=>r.model.toLowerCase().includes(q)&&(!sf||r.size===sf));
+  const cf=document.getElementById('cat-cat-filter').value;
+  let rows=catalog.filter(r=>
+    r.model.toLowerCase().includes(q) &&
+    (!sf||r.size===sf) &&
+    (!cf||(r.category||'')=== cf)
+  );
+  // sort
+  rows.sort((a,b)=>{
+    let av=a[sortCol]||'', bv=b[sortCol]||'';
+    if(typeof av==='number'&&typeof bv==='number') return (av-bv)*sortDir;
+    return String(av).localeCompare(String(bv),'bg')*sortDir;
+  });
+  applySortIcons();
   document.getElementById('s-total').textContent=catalog.length;
   if(catalog.length){
     const avg=catalog.reduce((a,r)=>a+r.final,0)/catalog.length;
@@ -693,19 +811,21 @@ function renderCatalog(){
     document.getElementById('s-max').textContent=Math.max(...catalog.map(r=>r.final)).toFixed(2)+' €';
   }else['s-avg','s-min','s-max'].forEach(id=>document.getElementById(id).textContent='—');
   const tbody=document.getElementById('catalog-body');
-  if(!rows.length){tbody.innerHTML='<tr><td colspan="15" class="no-data"><div class="no-icon">🌱</div>Няма намерени модели.</td></tr>';return}
+  if(!rows.length){tbody.innerHTML='<tr><td colspan="16" class="no-data"><div class="no-icon">🌱</div>Няма намерени модели.</td></tr>';return}
   tbody.innerHTML=rows.map(r=>{
     const i=catalog.indexOf(r);
+    const catBadge=r.category?`<span class="badge" style="background:#F0EDE7;color:var(--text2);font-size:11px">${escH(r.category)}</span>`:'<span style="color:var(--text3);font-size:12px">—</span>';
     const thumb=r.photo
-      ?`<img src="${escH(r.photo)}" style="width:44px;height:44px;object-fit:cover;border-radius:6px;border:1px solid var(--border);cursor:pointer" onclick="openCatalogModal(${i})">`
+      ?`<img src="${escH(r.photo)}" style="width:44px;height:44px;object-fit:cover;border-radius:6px;border:1px solid var(--border);cursor:zoom-in" onclick="openLightbox('${escH(r.photo)}','${escH(r.model)}')" title="Увеличи снимката">`
       :`<div style="width:44px;height:44px;border-radius:6px;border:1px dashed var(--border2);display:flex;align-items:center;justify-content:center;font-size:18px;cursor:pointer;color:var(--text3)" onclick="openCatalogModal(${i})">🌸</div>`;
     const diesThumb=r.dies
-      ?`<img src="${escH(r.dies)}" style="width:36px;height:36px;object-fit:cover;border-radius:5px;border:1px solid var(--border);cursor:pointer" onclick="openCatalogModal(${i})">`
+      ?`<img src="${escH(r.dies)}" style="width:36px;height:36px;object-fit:cover;border-radius:5px;border:1px solid var(--border);cursor:zoom-in" onclick="openLightbox('${escH(r.dies)}','Щанци — ${escH(r.model)}')" title="Увеличи снимката">`
       :`<span style="color:var(--text3);font-size:12px">—</span>`;
     const pr=r.process?`<a href="${escH(r.process)}" target="_blank" rel="noopener">▶</a>`:'—';
     return`<tr>
       <td>${thumb}</td>
       <td><span class="td-model" onclick="openCatalogModal(${i})">${escH(r.model)}${r.desc?`<div class="td-sub">${escH(r.desc.substring(0,40))}${r.desc.length>40?'…':''}</div>`:''}</span></td>
+      <td>${catBadge}</td>
       <td><span class="badge badge-size">${SZ[r.size]||r.size}</span></td>
       <td class="td-num">${r.fabric.toFixed(4)}</td>
       <td class="td-num">${r.glue.toFixed(2)}</td>
@@ -984,7 +1104,6 @@ function printOrder(i){
     <td style="padding:6px 9px;border-bottom:1px solid #eee;text-align:center">${it.qty}</td>
     <td style="padding:6px 9px;border-bottom:1px solid #eee;text-align:right;font-family:monospace">${it.unitPrice.toFixed(2)} €</td>
     <td style="padding:6px 9px;border-bottom:1px solid #eee;text-align:right;font-family:monospace;font-weight:600;color:#2D5016">${it.lineTotal.toFixed(2)} €</td>
-    <td style="padding:6px 9px;border-bottom:1px solid #eee;text-align:right;font-family:monospace;color:#276749">${it.lineProfit.toFixed(2)} €</td>
   </tr>`).join('');
   const sc={'Нова':'#1A4F8A','В процес':'#B7791F','Готова':'#276749','Доставена':'#C0392B'}[r.status]||'#333';
   const sb={'Нова':'#E8F1FB','В процес':'#FEF3DC','Готова':'#E6F4EE','Доставена':'#FDECEA'}[r.status]||'#f5f5f5';
@@ -1008,14 +1127,15 @@ function printOrder(i){
         <th style="padding:6px 9px;text-align:center;font-size:10px;color:#888;text-transform:uppercase">Бройка</th>
         <th style="padding:6px 9px;text-align:right;font-size:10px;color:#888;text-transform:uppercase">Ед. цена</th>
         <th style="padding:6px 9px;text-align:right;font-size:10px;color:#888;text-transform:uppercase">Сума</th>
-        <th style="padding:6px 9px;text-align:right;font-size:10px;color:#888;text-transform:uppercase">Печалба</th>
       </tr></thead>
       <tbody>${iRows}</tbody>
     </table>
     ${r.note?`<div style="background:#FEF3DC;border:1px solid #E8C97A;border-radius:6px;padding:9px 13px;margin-bottom:12px;font-size:13px;color:#7A5A10"><strong>Бележка:</strong> ${escH(r.note)}</div>`:''}
-    <div style="background:#EBF2E3;border:1px solid #C5DCA8;border-radius:8px;padding:12px 16px;display:flex;gap:24px;justify-content:flex-end">
-      <div style="text-align:right"><div style="font-size:10px;color:#4A7C28;font-weight:700;text-transform:uppercase">Обща печалба</div><div style="font-size:18px;font-weight:700;color:#276749">${(r.profit||0).toFixed(2)} €</div></div>
-      <div style="text-align:right"><div style="font-size:10px;color:#4A7C28;font-weight:700;text-transform:uppercase">За плащане</div><div style="font-size:24px;font-weight:700;color:#2D5016">${(r.total||0).toFixed(2)} €</div></div>
+    <div style="background:#EBF2E3;border:1px solid #C5DCA8;border-radius:8px;padding:12px 16px;display:flex;justify-content:flex-end">
+      <div style="text-align:right">
+        <div style="font-size:10px;color:#4A7C28;font-weight:700;text-transform:uppercase">За плащане</div>
+        <div style="font-size:28px;font-weight:700;color:#2D5016">${(r.total||0).toFixed(2)} €</div>
+      </div>
     </div>
   </div>`);
 }
@@ -1032,6 +1152,20 @@ function openPrintFrame(html){
 function closePrintFrame(){
   const f=document.getElementById('print-frame');f.style.display='none';f.innerHTML='';
 }
+
+/* ══ LIGHTBOX ════════════════════════════════════════ */
+function openLightbox(src,caption){
+  document.getElementById('lightbox-img').src=src;
+  document.getElementById('lightbox-caption').textContent=caption||'';
+  document.getElementById('lightbox').classList.add('open');
+}
+function closeLightbox(){
+  document.getElementById('lightbox').classList.remove('open');
+  document.getElementById('lightbox-img').src='';
+}
+document.addEventListener('keydown',function(e){
+  if(e.key==='Escape')closeLightbox();
+});
 
 /* ══ TOAST ═══════════════════════════════════════════ */
 function showToast(msg){
