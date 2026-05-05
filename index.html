@@ -530,34 +530,42 @@ const SUPABASE_KEY = 'ТВОЯТ_SUPABASE_ANON_KEY_ТУК';
 const SB = { url: SUPABASE_URL, key: SUPABASE_KEY };
 
 /* ── Supabase REST helpers ── */
+function sbH(extra){
+  const h=new Headers();
+  h.append('apikey', SB.key);
+  h.append('Authorization', 'Bearer ' + SB.key);
+  h.append('Content-Type', 'application/json');
+  if(extra) Object.entries(extra).forEach(([k,v])=>h.append(k,v));
+  return h;
+}
 async function sbGet(table, params=''){
-  const r=await fetch(`${SB.url}/rest/v1/${table}?${params}`,{headers:{'apikey':SB.key,'Authorization':'Bearer '+SB.key,'Content-Type':'application/json'}});
+  const r=await fetch(`${SB.url}/rest/v1/${table}?${params}`,{headers:sbH()});
   if(!r.ok)throw new Error(await r.text());
   return r.json();
 }
 async function sbPost(table,data){
-  const r=await fetch(`${SB.url}/rest/v1/${table}`,{method:'POST',headers:{'apikey':SB.key,'Authorization':'Bearer '+SB.key,'Content-Type':'application/json','Prefer':'return=representation'},body:JSON.stringify(data)});
+  const r=await fetch(`${SB.url}/rest/v1/${table}`,{method:'POST',headers:sbH({'Prefer':'return=representation'}),body:JSON.stringify(data)});
   if(!r.ok)throw new Error(await r.text());
   return r.json();
 }
 async function sbPatch(table,id,data){
-  const r=await fetch(`${SB.url}/rest/v1/${table}?id=eq.${id}`,{method:'PATCH',headers:{'apikey':SB.key,'Authorization':'Bearer '+SB.key,'Content-Type':'application/json','Prefer':'return=representation'},body:JSON.stringify(data)});
+  const r=await fetch(`${SB.url}/rest/v1/${table}?id=eq.${id}`,{method:'PATCH',headers:sbH({'Prefer':'return=representation'}),body:JSON.stringify(data)});
   if(!r.ok)throw new Error(await r.text());
   return r.json();
 }
 async function sbDelete(table,id){
-  const r=await fetch(`${SB.url}/rest/v1/${table}?id=eq.${id}`,{method:'DELETE',headers:{'apikey':SB.key,'Authorization':'Bearer '+SB.key}});
+  const r=await fetch(`${SB.url}/rest/v1/${table}?id=eq.${id}`,{method:'DELETE',headers:sbH()});
   if(!r.ok)throw new Error(await r.text());
 }
 async function sbUploadImage(bucket,path,base64data){
-  // convert base64 to blob
   const res=await fetch(base64data);
   const blob=await res.blob();
-  const r=await fetch(`${SB.url}/storage/v1/object/${bucket}/${path}`,{
-    method:'POST',
-    headers:{'apikey':SB.key,'Authorization':'Bearer '+SB.key,'Content-Type':blob.type,'x-upsert':'true'},
-    body:blob
-  });
+  const h=new Headers();
+  h.append('apikey', SB.key);
+  h.append('Authorization', 'Bearer ' + SB.key);
+  h.append('Content-Type', blob.type);
+  h.append('x-upsert', 'true');
+  const r=await fetch(`${SB.url}/storage/v1/object/${bucket}/${path}`,{method:'POST',headers:h,body:blob});
   if(!r.ok)throw new Error(await r.text());
   return `${SB.url}/storage/v1/object/public/${bucket}/${path}`;
 }
@@ -703,7 +711,7 @@ function resizeImage(file,maxPx,cb){
 function previewPhotoLink(url){
   const trimmed=url.trim();
   if(trimmed){
-    // clear local file data — link takes priority
+    // clear local file data - link takes priority
     document.getElementById('f-photo-data').value='';
     document.getElementById('f-photo-url').value=trimmed;
     const img=document.getElementById('photo-preview');
