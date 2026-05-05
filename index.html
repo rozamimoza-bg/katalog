@@ -406,6 +406,7 @@ th.sortable.active .sort-icon{opacity:1;color:var(--accent)}
     <div class="form-group"><label>Слоеве 3 см</label><input type="number" id="f-l3" min="0" value="0" inputmode="numeric" oninput="calcFabric()"></div>
     <div class="form-group"><label>Слоеве 4 см</label><input type="number" id="f-l4" min="0" value="0" inputmode="numeric" oninput="calcFabric()"></div>
     <div class="form-group"><label>Слоеве 5 см</label><input type="number" id="f-l5" min="0" value="0" inputmode="numeric" oninput="calcFabric()"></div>
+    <div class="form-group full"><label>Брой клончета <span class="note">(× 0.0122 € — оставете 0 ако няма)</span></label><input type="number" id="f-branches" min="0" value="0" inputmode="numeric" oninput="calcFabric()"></div>
 
     <div class="form-section">Разходи (евро)</div>
     <div class="form-group"><label>Лепило €</label><input type="number" id="f-glue" min="0" step="0.01" inputmode="decimal" oninput="calcAll()" placeholder="0.00"></div>
@@ -523,8 +524,8 @@ th.sortable.active .sort-icon{opacity:1;color:var(--accent)}
    Замени стойностите по-долу с твоите от Supabase →
    Settings → General (URL) и Settings → API (anon key)
    ══════════════════════════════════════════════════════ */
-const SUPABASE_URL = 'https://qewdtgmycenrqfaretmx.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_H2XQ9ggJjuoBOiZdrsKG8Q_iBs6fFY_';
+const SUPABASE_URL = 'ТВОЯТ_SUPABASE_URL_ТУК';
+const SUPABASE_KEY = 'ТВОЯТ_SUPABASE_ANON_KEY_ТУК';
 /* ══════════════════════════════════════════════════════ */
 
 const SB = { url: SUPABASE_URL, key: SUPABASE_KEY };
@@ -653,7 +654,7 @@ async function loadCatalog(){
   const data=await sbGet('flowers_catalog','order=model.asc&limit=1000');
   catalog=data.map(r=>({
     id:r.id, model:r.model, category:r.category||'', size:r.size,
-    l2:+r.l2,l3:+r.l3,l4:+r.l4,l5:+r.l5,
+    l2:+r.l2,l3:+r.l3,l4:+r.l4,l5:+r.l5,branches:+(r.branches||0),
     glue:+r.glue,ink:+r.ink,stamen:+r.stamen,amort:+r.amort,
     speed:+r.speed,hourly:+r.hourly,fabric:+r.fabric,coeff:+r.coeff,
     labor:+r.labor,cost:+r.cost,profit:+r.profit,final:+r.final,
@@ -680,7 +681,7 @@ async function loadOrders(){
 
 /* ══ ФОРМУЛИ ═════════════════════════════════════════ */
 function calcFabric(){
-  const f=nv('f-l2')*FABRIC.l2+nv('f-l3')*FABRIC.l3+nv('f-l4')*FABRIC.l4+nv('f-l5')*FABRIC.l5;
+  const f=nv('f-l2')*FABRIC.l2+nv('f-l3')*FABRIC.l3+nv('f-l4')*FABRIC.l4+nv('f-l5')*FABRIC.l5+nv('f-branches')*0.0122;
   document.getElementById('f-fabric').value=f.toFixed(4);calcAll();
 }
 function calcAll(){
@@ -826,6 +827,7 @@ function openCatalogModal(idx){
   document.getElementById('f-model').value=r?.model||'';
   document.getElementById('f-size').value=r?.size||'2cm';
   ['l2','l3','l4','l5'].forEach(k=>document.getElementById('f-'+k).value=r?.[k]??0);
+  document.getElementById('f-branches').value=r?.branches??0;
   ['glue','ink','stamen','amort','speed','hourly'].forEach(k=>document.getElementById('f-'+k).value=r?.[k]??'');
   document.getElementById('f-process').value=r?.process||'';
   document.getElementById('f-desc').value=r?.desc||'';
@@ -845,8 +847,8 @@ async function saveCatalog(){
   setSyncDot('busy');
   try{
     const size=document.getElementById('f-size').value;
-    const l2=nv('f-l2'),l3=nv('f-l3'),l4=nv('f-l4'),l5=nv('f-l5');
-    const fabric=l2*FABRIC.l2+l3*FABRIC.l3+l4*FABRIC.l4+l5*FABRIC.l5;
+    const l2=nv('f-l2'),l3=nv('f-l3'),l4=nv('f-l4'),l5=nv('f-l5'),branches=nv('f-branches');
+    const fabric=l2*FABRIC.l2+l3*FABRIC.l3+l4*FABRIC.l4+l5*FABRIC.l5+branches*0.0122;
     const coeff=COEFF[size];
     const speed=nv('f-speed'),hourly=nv('f-hourly');
     const labor=speed>0?(hourly/speed)*coeff:0;
@@ -855,7 +857,7 @@ async function saveCatalog(){
     const photoUrl=await uploadImageIfNeeded('f-photo-data','f-photo-url','photos',model);
     const diesUrl=await uploadImageIfNeeded('f-dies-data','f-dies-url','dies',model);
     const rec={
-      model,size,l2,l3,l4,l5,category:getChosenCategory(),
+      model,size,l2,l3,l4,l5,branches,category:getChosenCategory(),
       glue:nv('f-glue'),ink:nv('f-ink'),stamen:nv('f-stamen'),amort:nv('f-amort'),
       speed,hourly,fabric,coeff,labor,cost,profit:cost*.5,final:cost*1.5,
       photo_url:photoUrl,dies_url:diesUrl,
