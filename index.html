@@ -427,12 +427,21 @@ th.sortable.active .sort-icon{opacity:1;color:var(--accent)}
     <div class="form-section">📷 Снимка на модела</div>
     <div class="photo-zone">
       <div class="photo-frame"><span id="photo-placeholder-icon">🌸</span><img id="photo-preview" src="" alt="" style="cursor:zoom-in" onclick="if(this.classList.contains('show'))openLightbox(this.src,'Снимка')"></div>
-      <div>
+      <div style="flex:1">
         <div class="photo-btns">
           <label class="btn btn-sm" style="cursor:pointer">📷 Камера / Галерия<input type="file" id="f-photo-file" accept="image/*" capture="environment" style="display:none" onchange="loadPhoto(event)"></label>
           <button type="button" class="btn btn-sm btn-danger" onclick="clearPhoto()">✕ Изчисти</button>
         </div>
-        <div class="photo-hint">Телефон: камера директно.<br>Компютър: избор от файл.</div>
+        <div class="photo-hint" style="margin-bottom:8px">Телефон: камера директно.<br>Компютър: избор от файл.</div>
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+          <div style="flex:1;height:1px;background:var(--border)"></div>
+          <span style="font-size:11px;color:var(--text3);white-space:nowrap">или въведи линк</span>
+          <div style="flex:1;height:1px;background:var(--border)"></div>
+        </div>
+        <input type="url" id="f-photo-link" placeholder="https://..." inputmode="url"
+          style="font-size:12px;padding:6px 9px"
+          oninput="previewPhotoLink(this.value)">
+        <div style="font-size:11px;color:var(--text3);margin-top:3px">Постави линк към снимка в интернет</div>
       </div>
     </div>
     <input type="hidden" id="f-photo-data">
@@ -514,8 +523,8 @@ th.sortable.active .sort-icon{opacity:1;color:var(--accent)}
    Замени стойностите по-долу с твоите от Supabase →
    Settings → General (URL) и Settings → API (anon key)
    ══════════════════════════════════════════════════════ */
-const SUPABASE_URL = 'https://qewdtgmycenrqfaretmx.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_H2XQ9ggJjuoBOiZdrsKG8Q_iBs6fFY_';
+const SUPABASE_URL = 'ТВОЯТ_SUPABASE_URL_ТУК';
+const SUPABASE_KEY = 'ТВОЯТ_SUPABASE_ANON_KEY_ТУК';
 /* ══════════════════════════════════════════════════════ */
 
 const SB = { url: SUPABASE_URL, key: SUPABASE_KEY };
@@ -691,6 +700,20 @@ function resizeImage(file,maxPx,cb){
     };img.src=ev.target.result;
   };reader.readAsDataURL(file);
 }
+function previewPhotoLink(url){
+  const trimmed=url.trim();
+  if(trimmed){
+    // clear local file data — link takes priority
+    document.getElementById('f-photo-data').value='';
+    document.getElementById('f-photo-url').value=trimmed;
+    const img=document.getElementById('photo-preview');
+    img.src=trimmed; img.classList.add('show');
+    document.getElementById('photo-placeholder-icon').style.display='none';
+  } else {
+    // if link cleared and no local data, reset preview
+    if(!document.getElementById('f-photo-data').value) clearPhoto();
+  }
+}
 function loadPhoto(e){
   const file=e.target.files[0];if(!file)return;
   resizeImage(file,800,function(data){
@@ -701,13 +724,22 @@ function loadPhoto(e){
   });e.target.value='';
 }
 function clearPhoto(){
-  document.getElementById('f-photo-data').value='';document.getElementById('f-photo-url').value='';
+  document.getElementById('f-photo-data').value='';
+  document.getElementById('f-photo-url').value='';
+  document.getElementById('f-photo-link').value='';
   const img=document.getElementById('photo-preview');img.src='';img.classList.remove('show');
   document.getElementById('photo-placeholder-icon').style.display='';
 }
 function setPhotoUI(url){
   document.getElementById('f-photo-url').value=url||'';
   document.getElementById('f-photo-data').value='';
+  // if it's an external link (not base64, not supabase storage), show in link field too
+  const linkField=document.getElementById('f-photo-link');
+  if(url && url.startsWith('http') && !url.includes('supabase')){
+    linkField.value=url;
+  } else {
+    linkField.value='';
+  }
   const img=document.getElementById('photo-preview');
   const icon=document.getElementById('photo-placeholder-icon');
   if(url){img.src=url;img.classList.add('show');icon.style.display='none';}
