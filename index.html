@@ -169,6 +169,24 @@ textarea{resize:vertical;min-height:52px;line-height:1.5}
 .itp-label{font-size:12px;font-weight:600;color:var(--success)}
 .itp-val{font-family:'DM Mono',monospace;font-size:14px;font-weight:700;color:var(--success)}
 
+/* PRICE LIST */
+.pl-category-block{margin-bottom:22px}
+.pl-category-title{font-size:15px;font-weight:700;color:var(--accent);padding:8px 0 6px;border-bottom:2px solid var(--accent-light);margin-bottom:10px}
+.pl-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.pl-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;box-shadow:var(--shadow)}
+.pl-card-img{width:100%;height:110px;object-fit:cover;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:32px;color:var(--text3)}
+.pl-card-img img{width:100%;height:100%;object-fit:cover;display:block}
+.pl-card-body{padding:7px 9px 9px}
+.pl-card-name{font-size:12px;font-weight:600;color:var(--text);margin-bottom:2px;line-height:1.3}
+.pl-card-size{font-size:11px;color:var(--text3);margin-bottom:4px}
+.pl-card-price{font-size:15px;font-weight:700;color:var(--accent)}
+.pl-summary-tbl{width:100%;border-collapse:collapse;font-size:13px}
+.pl-summary-tbl th{padding:9px 14px;text-align:left;font-size:11px;font-weight:700;color:var(--text2);background:var(--surface2);border-bottom:1px solid var(--border);text-transform:uppercase;letter-spacing:.4px;white-space:nowrap}
+.pl-summary-tbl td{padding:9px 14px;border-bottom:1px solid var(--border);vertical-align:middle}
+.pl-summary-tbl tr:last-child td{border-bottom:none}
+.pl-summary-tbl tr:hover td{background:#FAFAF8}
+.pl-note{font-size:12px;color:var(--text3);margin-top:14px;padding:10px 14px;background:var(--surface2);border-radius:var(--radius);border-left:3px solid var(--accent-mid)}
+
 /* SORT */
 th.sortable{cursor:pointer;user-select:none}
 th.sortable:hover{background:#E4E0D9;color:var(--text)}
@@ -258,6 +276,7 @@ th.sortable.active .sort-icon{opacity:1;color:var(--accent)}
   <nav class="nav-tabs">
     <button class="nav-tab active" onclick="showTab('catalog')">📋 Каталог</button>
     <button class="nav-tab" onclick="showTab('orders')">📦 Поръчки</button>
+    <button class="nav-tab" onclick="showTab('pricelist')">💰 Ценоразпис</button>
   </nav>
   <div class="header-actions">
     <button class="btn btn-export btn-sm" onclick="exportCSV('catalog')">⬇ Каталог.csv</button>
@@ -276,6 +295,7 @@ th.sortable.active .sort-icon{opacity:1;color:var(--accent)}
 <div class="mobile-drawer" id="mobile-drawer" onclick="closeMobileMenu()">
   <div class="mobile-drawer-content" onclick="event.stopPropagation()">
     <div class="mobile-drawer-title">Меню</div>
+    <button class="btn" onclick="showTab('pricelist');closeMobileMenu()" style="color:var(--accent)">💰 Ценоразпис</button>
     <button class="btn btn-export" onclick="exportCSV('catalog');closeMobileMenu()">⬇ Каталог.csv</button>
     <button class="btn btn-export" onclick="exportCSV('orders');closeMobileMenu()">⬇ Поръчки.csv</button>
     <button class="btn btn-backup" onclick="backupDownload();closeMobileMenu()">💾 Запази бекъп</button>
@@ -372,7 +392,21 @@ th.sortable.active .sort-icon{opacity:1;color:var(--accent)}
       <tbody id="orders-body"><tr><td colspan="11" class="no-data"><div class="no-icon">📭</div>Зареждане...</td></tr></tbody>
     </table>
   </div></div>
+<!-- ЦЕНОРАЗПИС -->
+<div id="tab-pricelist" class="section">
+  <div class="page-header">
+    <div><div class="page-title">Ценоразпис</div><div class="page-sub">Ориентировъчни цени за клиенти — без разходи и печалби</div></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <div style="display:flex;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden">
+        <button id="pl-tab-summary" class="btn btn-sm" onclick="setPLView('summary')" style="border:none;border-radius:0;background:var(--accent);color:#fff">По категории</button>
+        <button id="pl-tab-detail" class="btn btn-sm" onclick="setPLView('detail')" style="border:none;border-radius:0">Всички модели</button>
+      </div>
+      <button class="btn btn-sm" style="color:var(--info);border-color:#A8C8F0;background:var(--info-light)" onclick="printPricelist()">🖨 Разпечатай / PDF</button>
+    </div>
+  </div>
+  <div id="pricelist-content"></div>
 </div>
+
 </main>
 </div><!-- /app -->
 
@@ -524,8 +558,8 @@ th.sortable.active .sort-icon{opacity:1;color:var(--accent)}
    Замени стойностите по-долу с твоите от Supabase →
    Settings → General (URL) и Settings → API (anon key)
    ══════════════════════════════════════════════════════ */
-const SUPABASE_URL = 'https://qewdtgmycenrqfaretmx.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_H2XQ9ggJjuoBOiZdrsKG8Q_iBs6fFY_';
+const SUPABASE_URL = 'ТВОЯТ_SUPABASE_URL_ТУК';
+const SUPABASE_KEY = 'ТВОЯТ_SUPABASE_ANON_KEY_ТУК';
 /* ══════════════════════════════════════════════════════ */
 
 const SB = { url: SUPABASE_URL, key: SUPABASE_KEY };
@@ -1106,7 +1140,9 @@ function showTab(tab){
   document.querySelectorAll('.nav-tab').forEach(b=>b.classList.remove('active'));
   document.getElementById('tab-'+tab).classList.add('active');
   document.querySelector(`.nav-tab[onclick="showTab('${tab}')"]`).classList.add('active');
-  if(tab==='orders')renderOrders();else renderCatalog();
+  if(tab==='orders')renderOrders();
+  else if(tab==='catalog')renderCatalog();
+  else if(tab==='pricelist')renderPricelist();
 }
 
 /* ══ МИГРАЦИЯ ════════════════════════════════════════ */
@@ -1287,6 +1323,147 @@ function showToast(msg){
   const t=document.getElementById('toast');
   t.textContent=msg;t.style.opacity='1';t.style.transform='translateX(-50%) translateY(0)';
   clearTimeout(t._t);t._t=setTimeout(()=>{t.style.opacity='0';t.style.transform='translateX(-50%) translateY(20px)'},3500);
+}
+
+/* ══ ЦЕНОРАЗПИС ══════════════════════════════════════ */
+let plView='summary';
+function setPLView(v){
+  plView=v;
+  const s=document.getElementById('pl-tab-summary');
+  const d=document.getElementById('pl-tab-detail');
+  s.style.background=v==='summary'?'var(--accent)':'';
+  s.style.color=v==='summary'?'#fff':'';
+  d.style.background=v==='detail'?'var(--accent)':'';
+  d.style.color=v==='detail'?'#fff':'';
+  renderPricelist();
+}
+
+function renderPricelist(){
+  if(!isLoggedIn())return;
+  const el=document.getElementById('pricelist-content');
+  if(!catalog.length){el.innerHTML='<div class="no-data"><div class="no-icon">🌸</div>Няма модели в каталога.</div>';return;}
+  if(plView==='summary')renderPLSummary(el);
+  else renderPLDetail(el);
+}
+
+function plGroups(){
+  const g={};
+  catalog.forEach(r=>{const c=r.category||'Без категория';if(!g[c])g[c]=[];g[c].push(r);});
+  return g;
+}
+
+function renderPLSummary(el){
+  const g=plGroups();
+  let html='<div class="tbl-card"><div class="tbl-wrap"><table class="pl-summary-tbl"><thead><tr>';
+  html+='<th>Категория</th><th style="text-align:center">Бр. модели</th><th>Размери</th><th style="text-align:right">Най-ниска цена</th><th style="text-align:right">Най-висока цена</th><th>Примерни модели</th>';
+  html+='</tr></thead><tbody>';
+  Object.keys(g).sort().forEach(cat=>{
+    const models=g[cat];
+    const prices=models.map(m=>m.final);
+    const minP=Math.min(...prices),maxP=Math.max(...prices);
+    const sizes=[...new Set(models.map(m=>SZ[m.size]||m.size))].sort().join(', ');
+    const examples=models.slice(0,3).map(m=>escH(m.model)).join(', ')+(models.length>3?'…':'');
+    html+=`<tr>
+      <td><strong>${escH(cat)}</strong></td>
+      <td style="text-align:center">${models.length}</td>
+      <td>${sizes}</td>
+      <td style="text-align:right;font-weight:700;color:var(--accent)">${minP.toFixed(2)} €</td>
+      <td style="text-align:right;font-weight:700;color:var(--accent)">${minP===maxP?'—':maxP.toFixed(2)+' €'}</td>
+      <td style="font-size:12px;color:var(--text2)">${examples}</td>
+    </tr>`;
+  });
+  html+='</tbody></table></div></div>';
+  html+=`<div class="pl-note">* Цените са ориентировъчни и зависят от размера и сложността на модела. За точна цена — свържете се с нас.</div>`;
+  el.innerHTML=html;
+}
+
+function renderPLDetail(el){
+  const g=plGroups();
+  let html='';
+  Object.keys(g).sort().forEach(cat=>{
+    html+=`<div class="pl-category-block"><div class="pl-category-title">🌸 ${escH(cat)}</div><div class="pl-grid">`;
+    g[cat].forEach(r=>{
+      const imgHtml=r.photo
+        ?`<img src="${escH(r.photo)}" alt="${escH(r.model)}" style="width:100%;height:110px;object-fit:cover;display:block">`
+        :`<div class="pl-card-img">🌸</div>`;
+      html+=`<div class="pl-card">
+        <div class="pl-card-img" style="height:110px;overflow:hidden">${imgHtml}</div>
+        <div class="pl-card-body">
+          <div class="pl-card-name">${escH(r.model)}</div>
+          <div class="pl-card-size">${SZ[r.size]||r.size}</div>
+          <div class="pl-card-price">${r.final.toFixed(2)} €</div>
+        </div>
+      </div>`;
+    });
+    html+='</div></div>';
+  });
+  html+=`<div class="pl-note">* Цените са ориентировъчни. За точна оферта — свържете се с нас.</div>`;
+  el.innerHTML=html;
+}
+
+function printPricelist(){
+  const isSummary=plView==='summary';
+  const g=plGroups();
+  const date=new Date().toLocaleDateString('bg-BG');
+  let body='';
+  if(isSummary){
+    body=`<table style="width:100%;border-collapse:collapse;font-size:13px">
+      <thead><tr style="background:#EBF2E3">
+        <th style="padding:8px 12px;text-align:left;border-bottom:2px solid #C5DCA8">Категория</th>
+        <th style="padding:8px 12px;text-align:center;border-bottom:2px solid #C5DCA8">Бр.</th>
+        <th style="padding:8px 12px;text-align:left;border-bottom:2px solid #C5DCA8">Размери</th>
+        <th style="padding:8px 12px;text-align:right;border-bottom:2px solid #C5DCA8">От</th>
+        <th style="padding:8px 12px;text-align:right;border-bottom:2px solid #C5DCA8">До</th>
+      </tr></thead><tbody>`;
+    Object.keys(g).sort().forEach((cat,i)=>{
+      const models=g[cat];
+      const prices=models.map(m=>m.final);
+      const minP=Math.min(...prices),maxP=Math.max(...prices);
+      const sizes=[...new Set(models.map(m=>SZ[m.size]||m.size))].sort().join(', ');
+      body+=`<tr style="background:${i%2?'#fff':'#FAFAF8'}">
+        <td style="padding:8px 12px;border-bottom:1px solid #eee;font-weight:600">${escH(cat)}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #eee;text-align:center">${models.length}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #eee">${sizes}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #eee;text-align:right;font-weight:700;color:#2D5016">${minP.toFixed(2)} €</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #eee;text-align:right;font-weight:700;color:#2D5016">${minP===maxP?'—':maxP.toFixed(2)+' €'}</td>
+      </tr>`;
+    });
+    body+='</tbody></table>';
+  } else {
+    Object.keys(g).sort().forEach(cat=>{
+      body+=`<div style="margin-bottom:22px">
+        <div style="font-size:14px;font-weight:700;color:#2D5016;padding:5px 0;border-bottom:2px solid #EBF2E3;margin-bottom:10px">🌸 ${escH(cat)}</div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">`;
+      g[cat].forEach(r=>{
+        const img=r.photo
+          ?`<img src="${escH(r.photo)}" style="width:100%;height:85px;object-fit:cover;border-radius:6px;display:block">`
+          :`<div style="width:100%;height:85px;background:#F0EDE7;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:26px">🌸</div>`;
+        body+=`<div style="border:1px solid #eee;border-radius:7px;overflow:hidden">
+          ${img}
+          <div style="padding:5px 7px">
+            <div style="font-size:11px;font-weight:600;line-height:1.3;margin-bottom:2px">${escH(r.model)}</div>
+            <div style="font-size:10px;color:#888;margin-bottom:3px">${SZ[r.size]||r.size}</div>
+            <div style="font-size:14px;font-weight:700;color:#2D5016">${r.final.toFixed(2)} €</div>
+          </div>
+        </div>`;
+      });
+      body+='</div></div>';
+    });
+  }
+  const title=isSummary?'Ориентировъчен ценоразпис по категории':'Ценоразпис на моделите';
+  openPrintFrame(`<div style="font-family:sans-serif;max-width:800px;margin:0 auto">
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:18px;padding-bottom:10px;border-bottom:2px solid #2D5016">
+      <div>
+        <div style="font-size:9px;color:#aaa;text-transform:uppercase;letter-spacing:.5px">Ценоразпис</div>
+        <div style="font-size:20px;font-weight:700;color:#2D5016">${title}</div>
+      </div>
+      <div style="font-size:11px;color:#aaa">${date}</div>
+    </div>
+    ${body}
+    <div style="margin-top:14px;padding:9px 13px;background:#F7F5F0;border-radius:6px;font-size:11px;color:#888;border-left:3px solid #C5DCA8">
+      * Цените са ориентировъчни и може да варират. За точна оферта — свържете се с нас.
+    </div>
+  </div>`);
 }
 
 /* ── Start ── */
