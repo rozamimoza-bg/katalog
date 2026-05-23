@@ -228,8 +228,10 @@ th.sortable.active .sort-icon{opacity:1;color:var(--accent)}
   .mobile-menu-btn{display:flex!important}
 }
 @media print{
-  body>*:not(#print-frame){display:none!important}
-  #print-frame{display:block!important;position:fixed;inset:0;background:#fff;z-index:9999;padding:20px;overflow:auto}
+  body>*{display:none!important}
+  #print-frame{display:block!important;position:static!important;overflow:visible!important;padding:0!important;background:#fff!important}
+  .no-print{display:none!important}
+  #print-content{display:block!important}
 }
 </style>
 </head>
@@ -355,9 +357,9 @@ th.sortable.active .sort-icon{opacity:1;color:var(--accent)}
         <th class="sortable" onclick="sortCatalog('cost')">Стойност € <span id="sort-cost" class="sort-icon"></span></th>
         <th class="sortable" onclick="sortCatalog('profit')">Печалба € <span id="sort-profit" class="sort-icon"></span></th>
         <th class="sortable" onclick="sortCatalog('final')">Крайна цена € <span id="sort-final" class="sort-icon"></span></th>
-        <th>Щанци</th><th>Процес</th><th>Действия</th>
+        <th>Щанци</th><th>Процес</th><th title="Включи в ценоразписа">Ценоразпис</th><th>Действия</th>
       </tr></thead>
-      <tbody id="catalog-body"><tr><td colspan="16" class="no-data"><div class="no-icon">🌱</div>Зареждане...</td></tr></tbody>
+      <tbody id="catalog-body"><tr><td colspan="17" class="no-data"><div class="no-icon">🌱</div>Зареждане...</td></tr></tbody>
     </table>
   </div></div>
 </div>
@@ -560,8 +562,8 @@ th.sortable.active .sort-icon{opacity:1;color:var(--accent)}
    Замени стойностите по-долу с твоите от Supabase →
    Settings → General (URL) и Settings → API (anon key)
    ══════════════════════════════════════════════════════ */
-const SUPABASE_URL = 'https://qewdtgmycenrqfaretmx.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_H2XQ9ggJjuoBOiZdrsKG8Q_iBs6fFY_';
+const SUPABASE_URL = 'ТВОЯТ_SUPABASE_URL_ТУК';
+const SUPABASE_KEY = 'ТВОЯТ_SUPABASE_ANON_KEY_ТУК';
 /* ══════════════════════════════════════════════════════ */
 
 const SB = { url: SUPABASE_URL, key: SUPABASE_KEY };
@@ -697,7 +699,8 @@ async function loadCatalog(){
     profit:Math.round(+r.profit*100)/100,
     final:Math.round(+r.final*100)/100,
     photo:r.photo_url||'', dies:r.dies_url||'',
-    process:r.process||'', desc:r.description||''
+    process:r.process||'', desc:r.description||'',
+    in_pricelist: r.in_pricelist !== false
   }));
   renderCatalog();
 }
@@ -904,7 +907,8 @@ async function saveCatalog(){
       speed,hourly,fabric:fabricR,coeff,labor:laborR,cost:costR,profit:profitR,final:finalR,
       photo_url:photoUrl,dies_url:diesUrl,
       process:document.getElementById('f-process').value.trim(),
-      description:document.getElementById('f-desc').value.trim()
+      description:document.getElementById('f-desc').value.trim(),
+      in_pricelist: editCat>=0 ? (catalog[editCat].in_pricelist!==false) : true
     };
     if(editCat>=0&&catalog[editCat].id){
       await sbPatch('flowers_catalog',catalog[editCat].id,rec);
@@ -982,6 +986,12 @@ function renderCatalog(){
       <td class="td-num profit-col">${r.profit.toFixed(2)}</td>
       <td class="td-num final">${r.final.toFixed(2)}</td>
       <td>${diesThumb}</td><td class="td-link">${pr}</td>
+      <td style="text-align:center">
+        <input type="checkbox" ${r.in_pricelist!==false?'checked':''} 
+          style="width:18px;height:18px;cursor:pointer;accent-color:var(--accent)"
+          onchange="togglePricelist('${r.id}',this.checked,${i})" 
+          title="${r.in_pricelist!==false?'Включен в ценоразписа':'Изключен от ценоразписа'}">
+      </td>
       <td><div class="actions">
         <button class="btn btn-sm btn-icon" onclick="printCatalogItem(${i})" style="color:var(--info);border-color:#A8C8F0;background:var(--info-light)" title="Печат">🖨</button>
         <button class="btn btn-sm btn-danger btn-icon" onclick="deleteCatalog(${i})" title="Изтрий">✕</button>
@@ -1316,11 +1326,12 @@ function printOrder(i){
 }
 function openPrintFrame(html){
   const frame=document.getElementById('print-frame');
-  frame.innerHTML=`<div style="display:flex;justify-content:flex-end;gap:7px;margin-bottom:13px;padding-bottom:11px;border-bottom:1px solid #eee">
+  frame.innerHTML=`<div class="no-print" style="display:flex;justify-content:flex-end;gap:7px;margin-bottom:13px;padding-bottom:11px;border-bottom:1px solid #eee;position:sticky;top:0;background:#fff;z-index:10">
     <button onclick="window.print()" style="padding:9px 18px;background:#2D5016;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600">🖨 Разпечатай</button>
     <button onclick="closePrintFrame()" style="padding:9px 13px;background:#fff;border:1px solid #ccc;border-radius:8px;cursor:pointer;font-size:14px">✕ Затвори</button>
-  </div>${html}`;
-  frame.style.display='block';frame.scrollIntoView({behavior:'smooth',block:'start'});
+  </div><div id="print-content">${html}</div>`;
+  frame.style.cssText='display:block;position:fixed;inset:0;background:#fff;z-index:9999;padding:20px;overflow-y:auto;-webkit-overflow-scrolling:touch';
+  frame.scrollTop=0;
 }
 function closePrintFrame(){const f=document.getElementById('print-frame');f.style.display='none';f.innerHTML=''}
 
@@ -1367,9 +1378,24 @@ function renderPricelist(){
   else renderPLDetail(el);
 }
 
+async function togglePricelist(id, checked, idx){
+  catalog[idx].in_pricelist=checked;
+  try{
+    await sbPatch('flowers_catalog',id,{in_pricelist:checked});
+    showToast(checked?'✅ Добавен в ценоразписа':'🚫 Премахнат от ценоразписа');
+  }catch(e){
+    showToast('⚠️ Грешка при запазване');
+    catalog[idx].in_pricelist=!checked;
+  }
+}
+
 function plGroups(){
   const g={};
-  catalog.forEach(r=>{const c=r.category||'Без категория';if(!g[c])g[c]=[];g[c].push(r);});
+  catalog.filter(r=>r.in_pricelist!==false).forEach(r=>{
+    const c=r.category||'Без категория';
+    if(!g[c])g[c]=[];
+    g[c].push(r);
+  });
   return g;
 }
 
