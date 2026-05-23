@@ -558,8 +558,8 @@ th.sortable.active .sort-icon{opacity:1;color:var(--accent)}
    Замени стойностите по-долу с твоите от Supabase →
    Settings → General (URL) и Settings → API (anon key)
    ══════════════════════════════════════════════════════ */
-const SUPABASE_URL = 'https://qewdtgmycenrqfaretmx.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_H2XQ9ggJjuoBOiZdrsKG8Q_iBs6fFY_';
+const SUPABASE_URL = 'ТВОЯТ_SUPABASE_URL_ТУК';
+const SUPABASE_KEY = 'ТВОЯТ_SUPABASE_ANON_KEY_ТУК';
 /* ══════════════════════════════════════════════════════ */
 
 const SB = { url: SUPABASE_URL, key: SUPABASE_KEY };
@@ -1142,7 +1142,10 @@ function showTab(tab){
   document.querySelector(`.nav-tab[onclick="showTab('${tab}')"]`).classList.add('active');
   if(tab==='orders')renderOrders();
   else if(tab==='catalog')renderCatalog();
-  else if(tab==='pricelist')renderPricelist();
+  else if(tab==='pricelist'){
+    if(catalog.length) renderPricelist();
+    else loadCatalog().then(()=>renderPricelist());
+  }
 }
 
 /* ══ МИГРАЦИЯ ════════════════════════════════════════ */
@@ -1340,7 +1343,17 @@ function setPLView(v){
 
 function renderPricelist(){
   if(!isLoggedIn())return;
+  // ensure toggle buttons are styled correctly
+  const s=document.getElementById('pl-tab-summary');
+  const d=document.getElementById('pl-tab-detail');
+  if(s&&d){
+    s.style.background=plView==='summary'?'var(--accent)':'';
+    s.style.color=plView==='summary'?'#fff':'';
+    d.style.background=plView==='detail'?'var(--accent)':'';
+    d.style.color=plView==='detail'?'#fff':'';
+  }
   const el=document.getElementById('pricelist-content');
+  if(!el)return;
   if(!catalog.length){el.innerHTML='<div class="no-data"><div class="no-icon">🌸</div>Няма модели в каталога.</div>';return;}
   if(plView==='summary')renderPLSummary(el);
   else renderPLDetail(el);
