@@ -161,7 +161,7 @@ textarea{resize:vertical;min-height:52px;line-height:1.5}
 /* ITEMS BUILDER */
 .items-builder{grid-column:1/-1;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
 .items-builder-head{background:var(--surface2);padding:8px 11px;font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;display:flex;justify-content:space-between;align-items:center}
-.item-row{display:grid;grid-template-columns:1fr 64px 90px 90px 28px;gap:6px;align-items:center;padding:7px 10px;border-top:1px solid var(--border);background:var(--surface)}
+.item-row{display:grid;grid-template-columns:1fr 120px 64px 90px 90px 28px;gap:6px;align-items:center;padding:7px 10px;border-top:1px solid var(--border);background:var(--surface)}
 .item-row select,.item-row input{padding:6px 8px;font-size:13px}
 .items-total-bar{background:var(--accent-light);padding:8px 11px;display:flex;gap:12px;align-items:center;border-top:1px solid #C5DCA8;flex-wrap:wrap}
 .itb-label{font-size:12px;font-weight:600;color:var(--accent)}
@@ -562,8 +562,8 @@ th.sortable.active .sort-icon{opacity:1;color:var(--accent)}
    Замени стойностите по-долу с твоите от Supabase →
    Settings → General (URL) и Settings → API (anon key)
    ══════════════════════════════════════════════════════ */
-const SUPABASE_URL = 'https://qewdtgmycenrqfaretmx.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_H2XQ9ggJjuoBOiZdrsKG8Q_iBs6fFY_';
+const SUPABASE_URL = 'ТВОЯТ_SUPABASE_URL_ТУК';
+const SUPABASE_KEY = 'ТВОЯТ_SUPABASE_ANON_KEY_ТУК';
 /* ══════════════════════════════════════════════════════ */
 
 const SB = { url: SUPABASE_URL, key: SUPABASE_KEY };
@@ -713,7 +713,7 @@ async function loadOrders(){
     status:o.status, total:+o.total, profit:+o.profit, note:o.note||'',
     items:items.filter(it=>it.order_id===o.id).map(it=>({
       id:it.id, modelIdx:catalog.findIndex(c=>c.id===it.catalog_id),
-      modelName:it.model_name, size:it.size, qty:+it.qty,
+      modelName:it.model_name, size:it.size, color:it.color||'', qty:+it.qty,
       unitPrice:+it.unit_price, lineTotal:+it.line_total, lineProfit:+it.line_profit
     }))
   }));
@@ -1001,7 +1001,7 @@ function renderCatalog(){
 }
 
 /* ══ ПОРЪЧКИ — РЕДОВЕ ════════════════════════════════ */
-function addItemRow(modelIdx='',qty=1){orderItems.push({modelIdx:String(modelIdx),qty:parseInt(qty)||1});renderItemRows()}
+function addItemRow(modelIdx='',qty=1,color=''){orderItems.push({modelIdx:String(modelIdx),qty:parseInt(qty)||1,color:color});renderItemRows()}
 function removeItemRow(i){orderItems.splice(i,1);renderItemRows()}
 function itemModelChanged(i,val){orderItems[i].modelIdx=val;renderItemRows()}
 function itemQtyChanged(i,val){orderItems[i].qty=parseInt(val)||1;renderItemRows()}
@@ -1017,6 +1017,7 @@ function renderItemRows(){
         <option value="">— модел —</option>
         ${catalog.map((r,ci)=>`<option value="${ci}"${String(item.modelIdx)===String(ci)?'selected':''}>${escH(r.model)} · ${SZ[r.size]}</option>`).join('')}
       </select>
+      <input type="text" value="${escH(item.color||'')}" placeholder="Цвят..." oninput="orderItems[${i}].color=this.value" style="font-size:12px">
       <input type="number" min="1" value="${item.qty}" inputmode="numeric" onchange="itemQtyChanged(${i},this.value)" style="text-align:center">
       <input type="text" readonly value="${unitStr}" class="item-unit" style="background:var(--surface2);color:var(--text2);font-family:'DM Mono',monospace;font-size:11px">
       <input type="text" readonly value="${sumStr}" style="background:var(--accent-light);color:var(--accent);font-family:'DM Mono',monospace;font-size:12px;font-weight:600">
@@ -1046,7 +1047,7 @@ function openOrderModal(idx){
   document.getElementById('o-client').value=r?.client||'';
   document.getElementById('o-phone').value=r?.phone||'';
   document.getElementById('o-note').value=r?.note||'';
-  orderItems=r?.items?r.items.map(it=>({modelIdx:String(it.modelIdx),qty:it.qty})):[{modelIdx:'',qty:1}];
+  orderItems=r?.items?r.items.map(it=>({modelIdx:String(it.modelIdx),qty:it.qty,color:it.color||''})):[{modelIdx:'',qty:1,color:''}];
   renderItemRows();
   document.getElementById('order-modal').classList.add('open');
   setTimeout(()=>document.querySelector('#order-modal .modal').scrollTop=0,50);
@@ -1065,7 +1066,7 @@ async function saveOrder(){
       const r=catalog[parseInt(it.modelIdx)];
       const lineTotal=r.final*it.qty;const lineProfit=r.profit*it.qty;
       total+=lineTotal;profit+=lineProfit;
-      return{catalog_id:r.id,model_name:r.model,size:SZ[r.size]||r.size,qty:it.qty,unit_price:r.final,line_total:lineTotal,line_profit:lineProfit};
+      return{catalog_id:r.id,model_name:r.model,size:SZ[r.size]||r.size,color:it.color||'',qty:it.qty,unit_price:r.final,line_total:lineTotal,line_profit:lineProfit};
     });
     const orderRec={date:document.getElementById('o-date').value,status:document.getElementById('o-status').value,
       client,phone:document.getElementById('o-phone').value.trim(),total,profit,note:document.getElementById('o-note').value.trim()};
@@ -1114,6 +1115,7 @@ function renderOrders(){
     const detailRows=(r.items||[]).map(it=>`<tr>
       <td>• ${escH(it.modelName)}</td>
       <td><span class="badge badge-size" style="font-size:10px">${escH(it.size)}</span></td>
+      <td style="font-size:12px;color:var(--text2)">${it.color?escH(it.color):'—'}</td>
       <td>${it.qty} бр.</td>
       <td style="font-family:'DM Mono',monospace;color:var(--text2)">${it.unitPrice.toFixed(2)} €</td>
       <td style="font-family:'DM Mono',monospace;color:var(--accent);font-weight:600">${it.lineTotal.toFixed(2)} €</td>
@@ -1138,7 +1140,7 @@ function renderOrders(){
     <tr><td colspan="11" style="padding:0;border-bottom:1px solid var(--border)">
       <div style="padding:4px 10px 8px 22px;background:#FEFEFE">
         <table class="ord-items-tbl">
-          <tr><th>Модел</th><th>Размер</th><th>Бр.</th><th>Ед.цена</th><th>Сума</th><th>Печалба</th></tr>
+          <tr><th>Модел</th><th>Размер</th><th>Цвят</th><th>Бр.</th><th>Ед.цена</th><th>Сума</th><th>Печалба</th></tr>
           ${detailRows}
         </table>
       </div>
@@ -1294,6 +1296,7 @@ function printOrder(i){
   const iRows=(r.items||[]).map((it,j)=>`<tr style="background:${j%2?'#FAFAF8':'#fff'}">
     <td style="padding:6px 9px;border-bottom:1px solid #eee;font-weight:500">${escH(it.modelName)}</td>
     <td style="padding:6px 9px;border-bottom:1px solid #eee;color:#2D5016">${escH(it.size)}</td>
+    <td style="padding:6px 9px;border-bottom:1px solid #eee;color:#666">${it.color?escH(it.color):'—'}</td>
     <td style="padding:6px 9px;border-bottom:1px solid #eee;text-align:center">${it.qty}</td>
     <td style="padding:6px 9px;border-bottom:1px solid #eee;text-align:right;font-family:monospace">${it.unitPrice.toFixed(2)} €</td>
     <td style="padding:6px 9px;border-bottom:1px solid #eee;text-align:right;font-family:monospace;font-weight:600;color:#2D5016">${it.lineTotal.toFixed(2)} €</td>
@@ -1312,6 +1315,7 @@ function printOrder(i){
       <thead><tr style="background:#F0EDE7">
         <th style="padding:6px 9px;text-align:left;font-size:10px;color:#888;text-transform:uppercase">Модел</th>
         <th style="padding:6px 9px;text-align:left;font-size:10px;color:#888;text-transform:uppercase">Размер</th>
+        <th style="padding:6px 9px;text-align:left;font-size:10px;color:#888;text-transform:uppercase">Цвят</th>
         <th style="padding:6px 9px;text-align:center;font-size:10px;color:#888;text-transform:uppercase">Бройка</th>
         <th style="padding:6px 9px;text-align:right;font-size:10px;color:#888;text-transform:uppercase">Ед. цена</th>
         <th style="padding:6px 9px;text-align:right;font-size:10px;color:#888;text-transform:uppercase">Сума</th>
