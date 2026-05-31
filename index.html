@@ -562,8 +562,8 @@ th.sortable.active .sort-icon{opacity:1;color:var(--accent)}
    Замени стойностите по-долу с твоите от Supabase →
    Settings → General (URL) и Settings → API (anon key)
    ══════════════════════════════════════════════════════ */
-const SUPABASE_URL = 'https://qewdtgmycenrqfaretmx.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_H2XQ9ggJjuoBOiZdrsKG8Q_iBs6fFY_';
+const SUPABASE_URL = 'ТВОЯТ_SUPABASE_URL_ТУК';
+const SUPABASE_KEY = 'ТВОЯТ_SUPABASE_ANON_KEY_ТУК';
 /* ══════════════════════════════════════════════════════ */
 
 const SB = { url: SUPABASE_URL, key: SUPABASE_KEY };
@@ -707,7 +707,7 @@ async function loadCatalog(){
 
 async function loadOrders(){
   const ords=await sbGet('flowers_orders','order=created_at.desc&limit=1000');
-  const items=await sbGet('flowers_order_items','order=id.asc&limit=5000');
+  const items=await sbGet('flowers_order_items','order=sort_order.asc&limit=5000');
   orders=ords.map(o=>({
     id:o.id, date:o.date, client:o.client, phone:o.phone||'',
     status:o.status, total:+o.total, profit:+o.profit, note:o.note||'',
@@ -1062,11 +1062,11 @@ async function saveOrder(){
   setSyncDot('busy');
   try{
     let total=0,profit=0;
-    const itemsData=validItems.map(it=>{
+    const itemsData=validItems.map((it,idx)=>{
       const r=catalog[parseInt(it.modelIdx)];
       const lineTotal=r.final*it.qty;const lineProfit=r.profit*it.qty;
       total+=lineTotal;profit+=lineProfit;
-      return{catalog_id:r.id,model_name:r.model,size:SZ[r.size]||r.size,color:it.color||'',qty:it.qty,unit_price:r.final,line_total:lineTotal,line_profit:lineProfit};
+      return{catalog_id:r.id,model_name:r.model,size:SZ[r.size]||r.size,color:it.color||'',qty:it.qty,unit_price:r.final,line_total:lineTotal,line_profit:lineProfit,sort_order:idx};
     });
     const orderRec={date:document.getElementById('o-date').value,status:document.getElementById('o-status').value,
       client,phone:document.getElementById('o-phone').value.trim(),total,profit,note:document.getElementById('o-note').value.trim()};
