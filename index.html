@@ -169,6 +169,22 @@ textarea{resize:vertical;min-height:52px;line-height:1.5}
 .itp-label{font-size:12px;font-weight:600;color:var(--success)}
 .itp-val{font-family:'DM Mono',monospace;font-size:14px;font-weight:700;color:var(--success)}
 
+/* COLLECTIONS */
+.col-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;box-shadow:var(--shadow);margin-bottom:14px}
+.col-card-header{padding:12px 16px;background:var(--accent-light);border-bottom:1px solid #C5DCA8;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.col-card-title{font-size:15px;font-weight:700;color:var(--accent)}
+.col-card-desc{font-size:12px;color:var(--accent-mid);margin-top:2px}
+.col-items-tbl{width:100%;border-collapse:collapse;font-size:13px}
+.col-items-tbl th{padding:8px 12px;text-align:left;font-size:11px;font-weight:700;color:var(--text2);background:var(--surface2);border-bottom:1px solid var(--border);text-transform:uppercase;letter-spacing:.3px;white-space:nowrap}
+.col-items-tbl td{padding:8px 12px;border-bottom:1px solid var(--border);vertical-align:middle}
+.col-items-tbl tr:last-child td{border-bottom:none}
+.col-item-row{display:grid;grid-template-columns:1fr 120px 90px 28px;gap:6px;align-items:center;padding:7px 10px;border-top:1px solid var(--border);background:var(--surface)}
+.col-item-row select,.col-item-row input{padding:6px 8px;font-size:12px}
+.col-picker-btn{padding:12px 14px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);cursor:pointer;text-align:left;width:100%;transition:background .15s}
+.col-picker-btn:hover{background:var(--accent-light);border-color:var(--accent-mid)}
+.col-picker-name{font-size:14px;font-weight:600;color:var(--accent)}
+.col-picker-meta{font-size:12px;color:var(--text2);margin-top:3px}
+
 /* PRICE LIST */
 .pl-category-block{margin-bottom:22px}
 .pl-category-title{font-size:15px;font-weight:700;color:var(--accent);padding:8px 0 6px;border-bottom:2px solid var(--accent-light);margin-bottom:10px}
@@ -278,6 +294,7 @@ th.sortable.active .sort-icon{opacity:1;color:var(--accent)}
   <nav class="nav-tabs">
     <button class="nav-tab active" onclick="showTab('catalog')">📋 Каталог</button>
     <button class="nav-tab" onclick="showTab('orders')">📦 Поръчки</button>
+    <button class="nav-tab" onclick="showTab('collections')">🎀 Колекции</button>
     <button class="nav-tab" onclick="showTab('pricelist')">💰 Ценоразпис</button>
   </nav>
   <div class="header-actions">
@@ -297,6 +314,7 @@ th.sortable.active .sort-icon{opacity:1;color:var(--accent)}
 <div class="mobile-drawer" id="mobile-drawer" onclick="closeMobileMenu()">
   <div class="mobile-drawer-content" onclick="event.stopPropagation()">
     <div class="mobile-drawer-title">Меню</div>
+    <button class="btn" onclick="showTab('collections');closeMobileMenu()" style="color:var(--accent)">🎀 Колекции</button>
     <button class="btn" onclick="showTab('pricelist');closeMobileMenu()" style="color:var(--accent)">💰 Ценоразпис</button>
     <button class="btn btn-export" onclick="exportCSV('catalog');closeMobileMenu()">⬇ Каталог.csv</button>
     <button class="btn btn-export" onclick="exportCSV('orders');closeMobileMenu()">⬇ Поръчки.csv</button>
@@ -396,6 +414,15 @@ th.sortable.active .sort-icon{opacity:1;color:var(--accent)}
   </div></div>
 </div><!-- /tab-orders -->
 
+<!-- КОЛЕКЦИИ -->
+<div id="tab-collections" class="section">
+  <div class="page-header">
+    <div><div class="page-title">Колекции</div><div class="page-sub">Групи от модели за бързо добавяне в поръчка</div></div>
+    <button class="btn btn-primary" onclick="openCollectionModal()">+ Нова колекция</button>
+  </div>
+  <div id="collections-list"></div>
+</div>
+
 <!-- ЦЕНОРАЗПИС -->
 <div id="tab-pricelist" class="section">
   <div class="page-header">
@@ -413,6 +440,33 @@ th.sortable.active .sort-icon{opacity:1;color:var(--accent)}
 
 </main>
 </div><!-- /app -->
+
+<!-- КОЛЕКЦИЯ МОДАЛ -->
+<div class="modal-overlay" id="collection-modal">
+<div class="modal">
+  <div class="modal-header">
+    <div class="modal-title" id="col-modal-title">Нова колекция</div>
+    <button class="modal-close" onclick="closeCollectionModal()">✕</button>
+  </div>
+  <div class="form-grid">
+    <div class="form-group full"><label>Име на колекцията</label><input type="text" id="col-name" placeholder="напр. Пролетна колекция" autocomplete="off"></div>
+    <div class="form-group full"><label>Описание <span class="note">(по желание)</span></label><input type="text" id="col-desc" placeholder="Кратко описание..."></div>
+
+    <div class="form-section">Модели в колекцията</div>
+    <div class="items-builder full">
+      <div class="items-builder-head">
+        <span>Добави модели от каталога</span>
+        <button type="button" class="btn btn-sm btn-primary" onclick="addCollectionItemRow()">+ Добави ред</button>
+      </div>
+      <div id="col-item-rows"></div>
+    </div>
+  </div>
+  <div class="modal-footer">
+    <button class="btn" onclick="closeCollectionModal()">Отказ</button>
+    <button class="btn btn-primary" onclick="saveCollection()">💾 Запази колекцията</button>
+  </div>
+</div>
+</div>
 
 <!-- КАТАЛОГ МОДАЛ -->
 <div class="modal-overlay" id="catalog-modal">
@@ -530,7 +584,10 @@ th.sortable.active .sort-icon{opacity:1;color:var(--accent)}
     <div class="items-builder full">
       <div class="items-builder-head">
         <span>Модели цветя</span>
-        <button type="button" class="btn btn-sm btn-primary" onclick="addItemRow()">+ Добави ред</button>
+        <div style="display:flex;gap:6px">
+          <button type="button" class="btn btn-sm" style="color:var(--accent);border-color:var(--accent-mid);background:var(--accent-light)" onclick="openAddCollectionToOrder()">🎀 От колекция</button>
+          <button type="button" class="btn btn-sm btn-primary" onclick="addItemRow()">+ Добави ред</button>
+        </div>
       </div>
       <div id="item-rows"></div>
       <div class="items-total-bar">
@@ -551,6 +608,20 @@ th.sortable.active .sort-icon{opacity:1;color:var(--accent)}
 
 <div id="toast"></div>
 <div id="print-frame"></div>
+
+<!-- ИЗБОР НА КОЛЕКЦИЯ ЗА ПОРЪЧКА -->
+<div class="modal-overlay" id="collection-picker-modal">
+<div class="modal" style="max-width:460px">
+  <div class="modal-header">
+    <div class="modal-title">Избери колекция</div>
+    <button class="modal-close" onclick="closeCollectionPicker()">✕</button>
+  </div>
+  <div id="collection-picker-list" style="display:flex;flex-direction:column;gap:8px;max-height:400px;overflow-y:auto"></div>
+  <div class="modal-footer">
+    <button class="btn" onclick="closeCollectionPicker()">Затвори</button>
+  </div>
+</div>
+</div>
 <div id="lightbox" onclick="closeLightbox()">
   <button id="lightbox-close" onclick="closeLightbox()" style="position:absolute;top:16px;right:20px;color:#fff;font-size:32px;cursor:pointer;background:none;border:none;opacity:.8">✕</button>
   <img id="lightbox-img" src="" alt="">
@@ -562,8 +633,8 @@ th.sortable.active .sort-icon{opacity:1;color:var(--accent)}
    Замени стойностите по-долу с твоите от Supabase →
    Settings → General (URL) и Settings → API (anon key)
    ══════════════════════════════════════════════════════ */
-const SUPABASE_URL = 'https://qewdtgmycenrqfaretmx.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_H2XQ9ggJjuoBOiZdrsKG8Q_iBs6fFY_';
+const SUPABASE_URL = 'ТВОЯТ_SUPABASE_URL_ТУК';
+const SUPABASE_KEY = 'ТВОЯТ_SUPABASE_ANON_KEY_ТУК';
 /* ══════════════════════════════════════════════════════ */
 
 const SB = { url: SUPABASE_URL, key: SUPABASE_KEY };
@@ -675,8 +746,8 @@ async function initApp(){
   try{
     await loadCatalog();
     await loadOrders();
+    await loadCollections();
     setSyncDot('ok');
-    // show migration banner only if supabase is configured and catalog is empty
     if(SUPABASE_URL!=='ТВОЯТ_SUPABASE_URL_ТУК' && catalog.length===0){
       document.getElementById('migration-banner').classList.remove('hidden');
     }
@@ -1148,6 +1219,179 @@ function renderOrders(){
   }).join('');
 }
 
+/* ══ КОЛЕКЦИИ ════════════════════════════════════════ */
+let collections=[];
+let editColIdx=-1;
+let colItems=[];
+
+async function loadCollections(){
+  try{
+    const data=await sbGet('flowers_collections','order=created_at.asc&limit=500');
+    const items=await sbGet('flowers_collection_items','order=sort_order.asc&limit=5000');
+    collections=data.map(c=>({
+      id:c.id, name:c.name, description:c.description||'',
+      items:items.filter(it=>it.collection_id===c.id).map(it=>({
+        id:it.id, catalogId:it.catalog_id, modelName:it.model_name,
+        size:it.size, color:it.color||'', unitPrice:+it.unit_price, sortOrder:+it.sort_order
+      }))
+    }));
+    renderCollections();
+  }catch(e){console.error('loadCollections',e);}
+}
+
+function renderCollections(){
+  const el=document.getElementById('collections-list');
+  if(!el)return;
+  if(!collections.length){
+    el.innerHTML='<div class="no-data"><div class="no-icon">🎀</div>Няма колекции. Създайте нова колекция.</div>';
+    return;
+  }
+  el.innerHTML=collections.map((c,i)=>{
+    const rows=c.items.map(it=>`<tr>
+      <td>${escH(it.modelName)}</td>
+      <td><span class="badge badge-size">${escH(it.size)}</span></td>
+      <td style="color:var(--text2)">${it.color?escH(it.color):'—'}</td>
+      <td class="td-num">${it.unitPrice.toFixed(2)} €</td>
+    </tr>`).join('');
+    return`<div class="col-card">
+      <div class="col-card-header">
+        <div>
+          <div class="col-card-title">🎀 ${escH(c.name)}</div>
+          ${c.description?`<div class="col-card-desc">${escH(c.description)}</div>`:''}
+        </div>
+        <div class="actions">
+          <button class="btn btn-sm btn-icon" onclick="openCollectionModal(${i})" title="Редактирай">✎</button>
+          <button class="btn btn-sm btn-danger btn-icon" onclick="deleteCollection(${i})" title="Изтрий">✕</button>
+        </div>
+      </div>
+      <div class="tbl-wrap">
+        <table class="col-items-tbl">
+          <thead><tr><th>Модел</th><th>Размер</th><th>Цвят</th><th>Цена</th></tr></thead>
+          <tbody>${rows||'<tr><td colspan="4" style="text-align:center;color:var(--text3);padding:12px">Няма добавени модели</td></tr>'}</tbody>
+        </table>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function openCollectionModal(idx){
+  editColIdx=idx!==undefined?idx:-1;
+  document.getElementById('col-modal-title').textContent=editColIdx>=0?'Редактиране на колекция':'Нова колекция';
+  const c=editColIdx>=0?collections[editColIdx]:null;
+  document.getElementById('col-name').value=c?.name||'';
+  document.getElementById('col-desc').value=c?.description||'';
+  colItems=c?.items?c.items.map(it=>({catalogId:it.catalogId,modelName:it.modelName,size:it.size,color:it.color,unitPrice:it.unitPrice})):[];
+  if(!colItems.length)colItems=[{catalogId:'',modelName:'',size:'',color:'',unitPrice:0}];
+  renderColItemRows();
+  document.getElementById('collection-modal').classList.add('open');
+}
+function closeCollectionModal(){document.getElementById('collection-modal').classList.remove('open')}
+
+function addCollectionItemRow(){
+  colItems.push({catalogId:'',modelName:'',size:'',color:'',unitPrice:0});
+  renderColItemRows();
+}
+function removeColItemRow(i){colItems.splice(i,1);renderColItemRows()}
+function colItemModelChanged(i,val){
+  if(val===''){colItems[i]={catalogId:'',modelName:'',size:'',color:colItems[i].color||'',unitPrice:0};}
+  else{
+    const r=catalog[parseInt(val)];
+    colItems[i]={catalogId:r.id,modelName:r.model,size:SZ[r.size]||r.size,color:colItems[i].color||'',unitPrice:r.final};
+  }
+  renderColItemRows();
+}
+
+function renderColItemRows(){
+  const container=document.getElementById('col-item-rows');
+  if(!container)return;
+  if(!colItems.length){
+    container.innerHTML='<div style="padding:11px 13px;font-size:13px;color:var(--text3)">Натиснете „+ Добави ред"</div>';
+    return;
+  }
+  container.innerHTML=colItems.map((item,i)=>{
+    const catIdx=item.catalogId?catalog.findIndex(r=>r.id===item.catalogId):-1;
+    return`<div class="col-item-row">
+      <select onchange="colItemModelChanged(${i},this.value)">
+        <option value="">— изберете модел —</option>
+        ${catalog.map((r,ci)=>`<option value="${ci}"${catIdx===ci?'selected':''}>${escH(r.model)} · ${SZ[r.size]}</option>`).join('')}
+      </select>
+      <input type="text" value="${escH(item.color||'')}" placeholder="Цвят..." oninput="colItems[${i}].color=this.value" style="font-size:12px">
+      <input type="text" readonly value="${item.unitPrice?item.unitPrice.toFixed(2)+' €':''}" style="background:var(--surface2);color:var(--text2);font-family:'DM Mono',monospace;font-size:11px">
+      <button type="button" class="btn btn-sm btn-danger btn-icon" onclick="removeColItemRow(${i})">✕</button>
+    </div>`;
+  }).join('');
+}
+
+async function saveCollection(){
+  const name=document.getElementById('col-name').value.trim();
+  if(!name){alert('Въведете име на колекцията');return}
+  const validItems=colItems.filter(it=>it.catalogId);
+  if(!validItems.length){alert('Добавете поне един модел');return}
+  try{
+    showToast('⏳ Запазване...');
+    let collId;
+    const colData={name,description:document.getElementById('col-desc').value.trim()};
+    if(editColIdx>=0){
+      await sbPatch('flowers_collections',collections[editColIdx].id,colData);
+      collId=collections[editColIdx].id;
+      // delete old items
+      const oldItems=await sbGet('flowers_collection_items',`collection_id=eq.${collId}`);
+      for(const it of oldItems) await sbDelete('flowers_collection_items',it.id);
+    }else{
+      const res=await sbPost('flowers_collections',colData);
+      collId=res[0].id;
+    }
+    // insert items
+    for(let i=0;i<validItems.length;i++){
+      const it=validItems[i];
+      await sbPost('flowers_collection_items',{
+        collection_id:collId, catalog_id:it.catalogId,
+        model_name:it.modelName, size:it.size, color:it.color||'',
+        unit_price:it.unitPrice, sort_order:i
+      });
+    }
+    await loadCollections();
+    closeCollectionModal();
+    showToast('✅ Колекцията е запазена!');
+  }catch(e){showToast('⚠️ Грешка: '+e.message);}
+}
+
+async function deleteCollection(i){
+  if(!confirm('Изтрий колекцията "'+collections[i].name+'"?'))return;
+  try{
+    await sbDelete('flowers_collections',collections[i].id);
+    await loadCollections();
+    showToast('🗑 Колекцията е изтрита');
+  }catch(e){showToast('⚠️ Грешка: '+e.message);}
+}
+
+/* ── Добавяне на колекция към поръчка ── */
+function openAddCollectionToOrder(){
+  const el=document.getElementById('collection-picker-list');
+  if(!collections.length){
+    el.innerHTML='<div style="padding:20px;text-align:center;color:var(--text3)">Няма създадени колекции.<br>Създайте колекция от таб „Колекции".</div>';
+  }else{
+    el.innerHTML=collections.map((c,i)=>`
+      <button class="col-picker-btn" onclick="applyCollectionToOrder(${i})">
+        <div class="col-picker-name">🎀 ${escH(c.name)}</div>
+        <div class="col-picker-meta">${c.items.length} модела${c.description?' · '+escH(c.description):''}</div>
+      </button>`).join('');
+  }
+  document.getElementById('collection-picker-modal').classList.add('open');
+}
+function closeCollectionPicker(){document.getElementById('collection-picker-modal').classList.remove('open')}
+
+function applyCollectionToOrder(i){
+  const c=collections[i];
+  c.items.forEach(it=>{
+    const catIdx=catalog.findIndex(r=>r.id===it.catalogId);
+    orderItems.push({modelIdx:String(catIdx>=0?catIdx:''),qty:1,color:it.color||''});
+  });
+  renderItemRows();
+  closeCollectionPicker();
+  showToast('✅ Добавени '+c.items.length+' модела от „'+c.name+'"');
+}
+
 /* ══ ТАБОВЕ ══════════════════════════════════════════ */
 function showTab(tab){
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
@@ -1162,6 +1406,10 @@ function showTab(tab){
   });
   if(tab==='orders')renderOrders();
   else if(tab==='catalog')renderCatalog();
+  else if(tab==='collections'){
+    if(collections.length||catalog.length)renderCollections();
+    else loadCollections();
+  }
   else if(tab==='pricelist'){
     if(catalog.length)renderPricelist();
     else loadCatalog().then(()=>renderPricelist());
