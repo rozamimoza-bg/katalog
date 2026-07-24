@@ -407,7 +407,7 @@ th.sortable.active .sort-icon{opacity:1;color:var(--accent)}
         <th>#</th><th>Дата</th><th>Клиент ↗</th><th>Телефон</th>
         <th>Артикули</th><th>Бр.</th>
         <th>За плащане €</th><th>Печалба €</th>
-        <th>Статус</th><th>Бележка</th><th>Действия</th>
+        <th>Статус</th><th>Бележка</th><th>Снимка</th><th>Действия</th>
       </tr></thead>
       <tbody id="orders-body"><tr><td colspan="11" class="no-data"><div class="no-icon">📭</div>Зареждане...</td></tr></tbody>
     </table>
@@ -597,6 +597,18 @@ th.sortable.active .sort-icon{opacity:1;color:var(--accent)}
       </div>
     </div>
     <div class="form-group full"><label>Бележка</label><textarea id="o-note" rows="2" placeholder="Допълнителни бележки..."></textarea></div>
+    <div class="form-section">Референтна снимка</div>
+    <div class="form-group full">
+      <label>Линк към снимка <span class="note">(от Facebook, Messenger, интернет)</span></label>
+      <input type="url" id="o-ref-image" placeholder="https://..." inputmode="url" oninput="previewRefImage(this.value)">
+    </div>
+    <div id="o-ref-preview" style="display:none;grid-column:1/-1;margin-top:4px">
+      <div style="font-size:11px;color:var(--text3);margin-bottom:6px">Преглед на референтната снимка:</div>
+      <img id="o-ref-img" src="" alt="референтна снимка"
+        style="max-width:100%;max-height:220px;border-radius:var(--radius);border:1px solid var(--border);object-fit:contain;cursor:zoom-in"
+        onclick="openLightbox(this.src,'Референтна снимка')"
+        onerror="document.getElementById('o-ref-preview').style.display='none'">
+    </div>
   </div>
   <div class="modal-footer">
     <button class="btn" onclick="closeOrderModal()">Отказ</button>
@@ -633,8 +645,8 @@ th.sortable.active .sort-icon{opacity:1;color:var(--accent)}
    Замени стойностите по-долу с твоите от Supabase →
    Settings → General (URL) и Settings → API (anon key)
    ══════════════════════════════════════════════════════ */
-const SUPABASE_URL = 'https://qewdtgmycenrqfaretmx.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_H2XQ9ggJjuoBOiZdrsKG8Q_iBs6fFY_';
+const SUPABASE_URL = 'ТВОЯТ_SUPABASE_URL_ТУК';
+const SUPABASE_KEY = 'ТВОЯТ_SUPABASE_ANON_KEY_ТУК';
 /* ══════════════════════════════════════════════════════ */
 
 const SB = { url: SUPABASE_URL, key: SUPABASE_KEY };
@@ -782,8 +794,10 @@ async function loadOrders(){
   orders=ords.map(o=>({
     id:o.id, date:o.date, client:o.client, phone:o.phone||'',
     status:o.status, total:+o.total, profit:+o.profit, note:o.note||'',
+    referenceImage:o.reference_image||'',
     items:items.filter(it=>it.order_id===o.id).map(it=>({
-      id:it.id, modelIdx:catalog.findIndex(c=>c.id===it.catalog_id),
+      id:it.id,
+      catalogId:it.catalog_id,
       modelName:it.model_name, size:it.size, color:it.color||'', qty:+it.qty,
       unitPrice:+it.unit_price, lineTotal:+it.line_total, lineProfit:+it.line_profit
     }))
@@ -1072,9 +1086,17 @@ function renderCatalog(){
 }
 
 /* ══ ПОРЪЧКИ — РЕДОВЕ ════════════════════════════════ */
-function addItemRow(modelIdx='',qty=1,color=''){orderItems.push({modelIdx:String(modelIdx),qty:parseInt(qty)||1,color:color});renderItemRows()}
+function addItemRow(modelIdx='',qty=1,color=''){
+  const catId=modelIdx!==''?catalog[parseInt(modelIdx)]?.id||'':'';
+  orderItems.push({catalogId:catId,modelIdx:String(modelIdx),qty:parseInt(qty)||1,color:color});
+  renderItemRows();
+}
 function removeItemRow(i){orderItems.splice(i,1);renderItemRows()}
-function itemModelChanged(i,val){orderItems[i].modelIdx=val;renderItemRows()}
+function itemModelChanged(i,val){
+  orderItems[i].modelIdx=val;
+  orderItems[i].catalogId=val!==''?catalog[parseInt(val)]?.id||'':'';
+  renderItemRows();
+}
 function itemQtyChanged(i,val){orderItems[i].qty=parseInt(val)||1;renderItemRows()}
 function renderItemRows(){
   const container=document.getElementById('item-rows');
@@ -1118,29 +1140,58 @@ function openOrderModal(idx){
   document.getElementById('o-client').value=r?.client||'';
   document.getElementById('o-phone').value=r?.phone||'';
   document.getElementById('o-note').value=r?.note||'';
-  orderItems=r?.items?r.items.map(it=>({modelIdx:String(it.modelIdx),qty:it.qty,color:it.color||''})):[{modelIdx:'',qty:1,color:''}];
+  const refImg=r?.referenceImage||'';
+  document.getElementById('o-ref-image').value=refImg;
+  previewRefImage(refImg);
+  orderItems=r?.items?r.items.map(it=>({
+    catalogId:it.catalogId,
+    modelIdx:String(catalog.findIndex(c=>c.id===it.catalogId)),
+    qty:it.qty, color:it.color||''
+  })):[{catalogId:'',modelIdx:'',qty:1,color:''}];
   renderItemRows();
   document.getElementById('order-modal').classList.add('open');
   setTimeout(()=>document.querySelector('#order-modal .modal').scrollTop=0,50);
 }
+function previewRefImage(url){
+  const prev=document.getElementById('o-ref-preview');
+  const img=document.getElementById('o-ref-img');
+  if(url.trim()){
+    img.src=url.trim();
+    prev.style.display='block';
+  }else{
+    prev.style.display='none';
+    img.src='';
+  }
+}
+
 function closeOrderModal(){document.getElementById('order-modal').classList.remove('open')}
 
 async function saveOrder(){
   const client=document.getElementById('o-client').value.trim();
   if(!client){alert('Въведете клиент');return}
-  const validItems=orderItems.filter(it=>it.modelIdx!==''&&catalog[parseInt(it.modelIdx)]);
+  const validItems=orderItems.filter(it=>
+    (it.catalogId&&catalog.find(c=>c.id===it.catalogId)) ||
+    (it.modelIdx!==''&&catalog[parseInt(it.modelIdx)])
+  );
   if(!validItems.length){alert('Добавете поне един артикул');return}
   setSyncDot('busy');
   try{
     let total=0,profit=0;
     const itemsData=validItems.map((it,idx)=>{
-      const r=catalog[parseInt(it.modelIdx)];
-      const lineTotal=r.final*it.qty;const lineProfit=r.profit*it.qty;
+      // use catalogId first, fall back to modelIdx for safety
+      const r=it.catalogId
+        ? catalog.find(c=>c.id===it.catalogId)
+        : catalog[parseInt(it.modelIdx)];
+      if(!r) return null;
+      const lineTotal=Math.round(r.final*it.qty*100)/100;
+      const lineProfit=Math.round(r.profit*it.qty*100)/100;
       total+=lineTotal;profit+=lineProfit;
       return{catalog_id:r.id,model_name:r.model,size:SZ[r.size]||r.size,color:it.color||'',qty:it.qty,unit_price:r.final,line_total:lineTotal,line_profit:lineProfit,sort_order:idx};
-    });
+    }).filter(Boolean);
     const orderRec={date:document.getElementById('o-date').value,status:document.getElementById('o-status').value,
-      client,phone:document.getElementById('o-phone').value.trim(),total,profit,note:document.getElementById('o-note').value.trim()};
+      client,phone:document.getElementById('o-phone').value.trim(),total,profit,
+      note:document.getElementById('o-note').value.trim(),
+      reference_image:document.getElementById('o-ref-image').value.trim()};
     let orderId;
     if(editOrd>=0&&orders[editOrd].id){
       orderId=orders[editOrd].id;
@@ -1203,6 +1254,7 @@ function renderOrders(){
       <td class="td-num profit-col">${(r.profit||0).toFixed(2)}</td>
       <td><span class="badge ${BADGE_MAP[r.status]||'badge-info'}">${escH(r.status)}</span></td>
       <td style="font-size:12px;color:var(--text2);max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escH(r.note||'—')}</td>
+      <td>${r.referenceImage?`<img src="${escH(r.referenceImage)}" style="width:40px;height:40px;object-fit:cover;border-radius:5px;border:1px solid var(--border);cursor:zoom-in" onclick="openLightbox('${escH(r.referenceImage)}','Референтна снимка')" title="Референтна снимка">`:'—'}</td>
       <td><div class="actions">
         <button class="btn btn-sm btn-icon" onclick="printOrder(${i})" style="color:var(--info);border-color:#A8C8F0;background:var(--info-light)" title="Печат">🖨</button>
         <button class="btn btn-sm btn-danger btn-icon" onclick="deleteOrder(${i})" title="Изтрий">✕</button>
@@ -1385,7 +1437,7 @@ function applyCollectionToOrder(i){
   const c=collections[i];
   c.items.forEach(it=>{
     const catIdx=catalog.findIndex(r=>r.id===it.catalogId);
-    orderItems.push({modelIdx:String(catIdx>=0?catIdx:''),qty:1,color:it.color||''});
+    orderItems.push({catalogId:it.catalogId,modelIdx:String(catIdx>=0?catIdx:''),qty:1,color:it.color||''});
   });
   renderItemRows();
   closeCollectionPicker();
@@ -1570,6 +1622,7 @@ function printOrder(i){
       </tr></thead><tbody>${iRows}</tbody>
     </table>
     ${r.note?`<div style="background:#FEF3DC;border:1px solid #E8C97A;border-radius:6px;padding:9px 13px;margin-bottom:12px;font-size:13px;color:#7A5A10"><strong>Бележка:</strong> ${escH(r.note)}</div>`:''}
+    ${r.referenceImage?`<div style="margin-bottom:14px"><div style="font-size:11px;font-weight:700;color:#999;text-transform:uppercase;margin-bottom:6px">Референтна снимка</div><img src="${escH(r.referenceImage)}" style="max-width:260px;max-height:200px;border-radius:8px;border:1px solid #ddd;object-fit:contain"></div>`:''}
     <div style="background:#EBF2E3;border:1px solid #C5DCA8;border-radius:8px;padding:12px 16px;display:flex;justify-content:flex-end">
       <div style="text-align:right"><div style="font-size:10px;color:#4A7C28;font-weight:700;text-transform:uppercase">За плащане</div>
       <div style="font-size:28px;font-weight:700;color:#2D5016">${(r.total||0).toFixed(2)} €</div></div>
