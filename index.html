@@ -592,6 +592,7 @@ th.sortable.active .sort-icon{opacity:1;color:var(--accent)}
         <span>Модели цветя</span>
         <div style="display:flex;gap:6px">
           <button type="button" class="btn btn-sm" style="color:var(--accent);border-color:var(--accent-mid);background:var(--accent-light)" onclick="openAddCollectionToOrder()">🎀 От колекция</button>
+          <button type="button" class="btn btn-sm" style="color:var(--info);border-color:#A8C8F0;background:var(--info-light)" onclick="sortOrderItems()" title="Подрежда еднаквите модели един до друг">🔤 Подреди</button>
           <button type="button" class="btn btn-sm btn-primary" onclick="addItemRow()">+ Добави ред</button>
         </div>
       </div>
@@ -639,8 +640,8 @@ th.sortable.active .sort-icon{opacity:1;color:var(--accent)}
    Замени стойностите по-долу с твоите от Supabase →
    Settings → General (URL) и Settings → API (anon key)
    ══════════════════════════════════════════════════════ */
-const SUPABASE_URL = 'https://qewdtgmycenrqfaretmx.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_H2XQ9ggJjuoBOiZdrsKG8Q_iBs6fFY_';
+const SUPABASE_URL = 'ТВОЯТ_SUPABASE_URL_ТУК';
+const SUPABASE_KEY = 'ТВОЯТ_SUPABASE_ANON_KEY_ТУК';
 /* ══════════════════════════════════════════════════════ */
 
 const SB = { url: SUPABASE_URL, key: SUPABASE_KEY };
@@ -1081,6 +1082,19 @@ function renderCatalog(){
 }
 
 /* ══ ПОРЪЧКИ — РЕДОВЕ ════════════════════════════════ */
+function sortOrderItems(){
+  // Групира редовете по модел (и размер), запазвайки реда на добавяне на цветовете вътре в един модел.
+  // catalog масивът вече е азбучно сортиран, затова сортираме по позицията на модела в него (modelIdx).
+  orderItems.sort((a,b)=>{
+    const ai=a.modelIdx===''?NaN:parseInt(a.modelIdx), bi=b.modelIdx===''?NaN:parseInt(b.modelIdx);
+    if(isNaN(ai)&&isNaN(bi))return 0;
+    if(isNaN(ai))return 1;
+    if(isNaN(bi))return -1;
+    return ai-bi;
+  });
+  renderItemRows();
+  showToast('✅ Артикулите са подредени по модел');
+}
 function addItemRow(modelIdx='',qty=1,color='',photo=''){
   const catId=modelIdx!==''?catalog[parseInt(modelIdx)]?.id||'':'';
   orderItems.push({catalogId:catId,modelIdx:String(modelIdx),qty:parseInt(qty)||1,color:color,photo:photo});
