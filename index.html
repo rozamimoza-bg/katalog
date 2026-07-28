@@ -166,6 +166,11 @@ textarea{resize:vertical;min-height:52px;line-height:1.5}
 .item-photo-row{display:flex;gap:6px;align-items:center;padding:0 10px 7px;background:var(--surface)}
 .item-photo-row input{flex:1;padding:5px 8px;font-size:11px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface2);color:var(--text2)}
 .item-photo-row .btn-icon{color:var(--info);border-color:#A8C8F0;background:var(--info-light)}
+.group-header-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 10px;background:var(--accent-light);border-top:2px solid var(--accent-mid)}
+.group-header-row span{font-size:13px;font-weight:700;color:var(--accent)}
+.item-row.grouped{border-left:3px solid var(--accent-mid);padding-left:8px;background:#FBFDF8}
+.item-photo-row.grouped{border-left:3px solid var(--accent-mid);padding-left:8px;background:#FBFDF8}
+.col-card-summary{font-size:12px;color:var(--text2);margin-top:2px;font-weight:600}
 .items-total-bar{background:var(--accent-light);padding:8px 11px;display:flex;gap:12px;align-items:center;border-top:1px solid #C5DCA8;flex-wrap:wrap}
 .itb-label{font-size:12px;font-weight:600;color:var(--accent)}
 .itb-val{font-family:'DM Mono',monospace;font-size:14px;font-weight:700;color:var(--accent)}
@@ -640,8 +645,8 @@ th.sortable.active .sort-icon{opacity:1;color:var(--accent)}
    Замени стойностите по-долу с твоите от Supabase →
    Settings → General (URL) и Settings → API (anon key)
    ══════════════════════════════════════════════════════ */
-const SUPABASE_URL = 'https://qewdtgmycenrqfaretmx.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_H2XQ9ggJjuoBOiZdrsKG8Q_iBs6fFY_';
+const SUPABASE_URL = 'ТВОЯТ_SUPABASE_URL_ТУК';
+const SUPABASE_KEY = 'ТВОЯТ_SUPABASE_ANON_KEY_ТУК';
 /* ══════════════════════════════════════════════════════ */
 
 const SB = { url: SUPABASE_URL, key: SUPABASE_KEY };
@@ -790,13 +795,16 @@ async function loadOrders(){
   orders=ords.map(o=>({
     id:o.id, date:o.date, client:o.client, phone:o.phone||'',
     status:o.status, total:+o.total, profit:+o.profit, note:o.note||'',
-    items:items.filter(it=>it.order_id===o.id).map(it=>({
+    items:items.filter(it=>it.order_id===o.id).map(it=>
+      it.is_group_header?{
+        id:it.id, isGroupHeader:true, groupId:it.group_id, groupName:it.group_name
+      }:{
       id:it.id,
       catalogId:it.catalog_id,
       modelName:it.model_name, size:it.size, color:it.color||'', qty:+it.qty,
       unitPrice:+it.unit_price, lineTotal:+it.line_total, lineProfit:+it.line_profit,
-      photo:it.photo_url||''
-    }))
+      photo:it.photo_url||'', groupId:it.group_id||null
+    })
   }));
   renderOrders();
 }
@@ -1083,15 +1091,34 @@ function renderCatalog(){
 
 /* ══ ПОРЪЧКИ — РЕДОВЕ ════════════════════════════════ */
 function sortOrderItems(){
-  // Групира редовете по модел (и размер), запазвайки реда на добавяне на цветовете вътре в един модел.
-  // catalog масивът вече е азбучно сортиран, затова сортираме по позицията на модела в него (modelIdx).
-  orderItems.sort((a,b)=>{
-    const ai=a.modelIdx===''?NaN:parseInt(a.modelIdx), bi=b.modelIdx===''?NaN:parseInt(b.modelIdx);
-    if(isNaN(ai)&&isNaN(bi))return 0;
-    if(isNaN(ai))return 1;
-    if(isNaN(bi))return -1;
-    return ai-bi;
+  // Изгражда "блокове": самостоятелен ред = 1 блок; заглавие на колекция + съдържанието ѝ = 1 неделим блок.
+  const blocks=[];
+  let i=0;
+  while(i<orderItems.length){
+    const it=orderItems[i];
+    if(it.isGroupHeader){
+      const gid=it.groupId;
+      const members=[it];
+      let j=i+1;
+      while(j<orderItems.length && !orderItems[j].isGroupHeader && orderItems[j].groupId===gid){
+        members.push(orderItems[j]); j++;
+      }
+      blocks.push({key:(it.groupName||'').toLowerCase(),members});
+      i=j;
+    }else{
+      const mi=it.modelIdx===''?NaN:parseInt(it.modelIdx);
+      const name=!isNaN(mi)&&catalog[mi]?catalog[mi].model:'';
+      blocks.push({key:name?name.toLowerCase():null,members:[it]});
+      i++;
+    }
+  }
+  blocks.sort((a,b)=>{
+    if(a.key===null&&b.key===null)return 0;
+    if(a.key===null)return 1;
+    if(b.key===null)return -1;
+    return a.key.localeCompare(b.key,'bg');
   });
+  orderItems=blocks.flatMap(b=>b.members);
   renderItemRows();
   showToast('✅ Артикулите са подредени по модел');
 }
@@ -1101,6 +1128,13 @@ function addItemRow(modelIdx='',qty=1,color='',photo=''){
   renderItemRows();
 }
 function removeItemRow(i){orderItems.splice(i,1);renderItemRows()}
+function removeGroupRow(i){
+  const gid=orderItems[i].groupId;
+  const name=orderItems[i].groupName;
+  if(!confirm('Ще премахнеш цялата колекция „'+name+'" с всичките ѝ цветя. Продължи?'))return;
+  orderItems=orderItems.filter((it,idx)=>idx===i?false:(it.groupId===gid?false:true));
+  renderItemRows();
+}
 function itemModelChanged(i,val){
   orderItems[i].modelIdx=val;
   orderItems[i].catalogId=val!==''?catalog[parseInt(val)]?.id||'':'';
@@ -1111,11 +1145,18 @@ function renderItemRows(){
   const container=document.getElementById('item-rows');
   if(!orderItems.length){container.innerHTML='<div style="padding:11px 13px;font-size:13px;color:var(--text3)">Натиснете „+ Добави ред"</div>';recalcOrderTotals();return}
   container.innerHTML=orderItems.map((item,i)=>{
+    if(item.isGroupHeader){
+      return`<div class="group-header-row">
+        <span>🎀 ${escH(item.groupName)}</span>
+        <button type="button" class="btn btn-sm btn-danger btn-icon" onclick="removeGroupRow(${i})" title="Премахни цялата колекция">✕</button>
+      </div>`;
+    }
     const cat=item.modelIdx!==''&&catalog[parseInt(item.modelIdx)]?catalog[parseInt(item.modelIdx)]:null;
     const unitStr=cat?cat.final.toFixed(2)+' €':'';
     const sumStr=cat?(cat.final*item.qty).toFixed(2)+' €':'';
     const photo=item.photo||'';
-    return`<div class="item-row">
+    const grp=item.groupId?' grouped':'';
+    return`<div class="item-row${grp}">
       <select onchange="itemModelChanged(${i},this.value)">
         <option value="">— модел —</option>
         ${catalog.map((r,ci)=>`<option value="${ci}"${String(item.modelIdx)===String(ci)?'selected':''}>${escH(r.model)} · ${SZ[r.size]}</option>`).join('')}
@@ -1126,7 +1167,7 @@ function renderItemRows(){
       <input type="text" readonly value="${sumStr}" style="background:var(--accent-light);color:var(--accent);font-family:'DM Mono',monospace;font-size:12px;font-weight:600">
       <button type="button" class="btn btn-sm btn-danger btn-icon" onclick="removeItemRow(${i})">✕</button>
     </div>
-    <div class="item-photo-row">
+    <div class="item-photo-row${grp}">
       <input type="url" value="${escH(photo)}" placeholder="🔗 Линк към снимка на артикула (само преглед, не се печата)" inputmode="url" oninput="orderItems[${i}].photo=this.value" onchange="renderItemRows()">
       ${photo?`<button type="button" class="btn btn-sm btn-icon" onclick="openLightbox('${escH(photo)}','Снимка на артикул')" title="Преглед">👁</button>`:''}
     </div>`;
@@ -1136,7 +1177,7 @@ function renderItemRows(){
 function recalcOrderTotals(){
   let total=0,profit=0;
   orderItems.forEach(item=>{
-    if(item.modelIdx!==''&&catalog[parseInt(item.modelIdx)]){
+    if(!item.isGroupHeader&&item.modelIdx!==''&&catalog[parseInt(item.modelIdx)]){
       const r=catalog[parseInt(item.modelIdx)];total+=r.final*item.qty;profit+=r.profit*item.qty;
     }
   });
@@ -1154,11 +1195,13 @@ function openOrderModal(idx){
   document.getElementById('o-client').value=r?.client||'';
   document.getElementById('o-phone').value=r?.phone||'';
   document.getElementById('o-note').value=r?.note||'';
-  orderItems=r?.items?r.items.map(it=>({
+  orderItems=r?.items?r.items.map(it=>it.isGroupHeader?{
+    isGroupHeader:true, groupId:it.groupId, groupName:it.groupName
+  }:{
     catalogId:it.catalogId,
     modelIdx:String(catalog.findIndex(c=>c.id===it.catalogId)),
-    qty:it.qty, color:it.color||'', photo:it.photo||''
-  })):[{catalogId:'',modelIdx:'',qty:1,color:'',photo:''}];
+    qty:it.qty, color:it.color||'', photo:it.photo||'', groupId:it.groupId||null
+  }):[{catalogId:'',modelIdx:'',qty:1,color:'',photo:''}];
   renderItemRows();
   document.getElementById('order-modal').classList.add('open');
   setTimeout(()=>document.querySelector('#order-modal .modal').scrollTop=0,50);
@@ -1169,14 +1212,18 @@ async function saveOrder(){
   const client=document.getElementById('o-client').value.trim();
   if(!client){alert('Въведете клиент');return}
   const validItems=orderItems.filter(it=>
+    it.isGroupHeader ||
     (it.catalogId&&catalog.find(c=>c.id===it.catalogId)) ||
     (it.modelIdx!==''&&catalog[parseInt(it.modelIdx)])
   );
-  if(!validItems.length){alert('Добавете поне един артикул');return}
+  if(!validItems.some(it=>!it.isGroupHeader)){alert('Добавете поне един артикул');return}
   setSyncDot('busy');
   try{
     let total=0,profit=0;
     const itemsData=validItems.map((it,idx)=>{
+      if(it.isGroupHeader){
+        return{catalog_id:null,model_name:'',size:'',color:'',qty:0,unit_price:0,line_total:0,line_profit:0,sort_order:idx,photo_url:'',group_id:it.groupId,group_name:it.groupName,is_group_header:true};
+      }
       // use catalogId first, fall back to modelIdx for safety
       const r=it.catalogId
         ? catalog.find(c=>c.id===it.catalogId)
@@ -1185,7 +1232,7 @@ async function saveOrder(){
       const lineTotal=Math.round(r.final*it.qty*100)/100;
       const lineProfit=Math.round(r.profit*it.qty*100)/100;
       total+=lineTotal;profit+=lineProfit;
-      return{catalog_id:r.id,model_name:r.model,size:SZ[r.size]||r.size,color:it.color||'',qty:it.qty,unit_price:r.final,line_total:lineTotal,line_profit:lineProfit,sort_order:idx,photo_url:it.photo||''};
+      return{catalog_id:r.id,model_name:r.model,size:SZ[r.size]||r.size,color:it.color||'',qty:it.qty,unit_price:r.final,line_total:lineTotal,line_profit:lineProfit,sort_order:idx,photo_url:it.photo||'',group_id:it.groupId||null,group_name:null,is_group_header:false};
     }).filter(Boolean);
     const orderRec={date:document.getElementById('o-date').value,status:document.getElementById('o-status').value,
       client,phone:document.getElementById('o-phone').value.trim(),total,profit,
@@ -1230,9 +1277,14 @@ function renderOrders(){
   if(!rows.length){tbody.innerHTML='<tr><td colspan="10" class="no-data"><div class="no-icon">📭</div>Няма поръчки.</td></tr>';return}
   tbody.innerHTML=rows.map(r=>{
     const i=orders.indexOf(r);
-    const totalQty=(r.items||[]).reduce((a,it)=>a+it.qty,0);
-    const itemsCount=(r.items||[]).length;
-    const detailRows=(r.items||[]).map(it=>`<tr>
+    const flowerItems=(r.items||[]).filter(it=>!it.isGroupHeader);
+    const totalQty=flowerItems.reduce((a,it)=>a+it.qty,0);
+    const itemsCount=flowerItems.length;
+    const detailRows=(r.items||[]).map(it=>{
+      if(it.isGroupHeader){
+        return`<tr><td colspan="8" style="background:var(--accent-light);color:var(--accent);font-weight:700;font-size:12px;padding:5px 7px">🎀 ${escH(it.groupName)}</td></tr>`;
+      }
+      return`<tr>
       <td>• ${escH(it.modelName)}</td>
       <td><span class="badge badge-size" style="font-size:10px">${escH(it.size)}</span></td>
       <td style="font-size:12px;color:var(--text2)">${it.color?escH(it.color):'—'}</td>
@@ -1241,7 +1293,8 @@ function renderOrders(){
       <td style="font-family:'DM Mono',monospace;color:var(--accent);font-weight:600">${it.lineTotal.toFixed(2)} €</td>
       <td style="font-family:'DM Mono',monospace;color:var(--success)">${it.lineProfit.toFixed(2)} €</td>
       <td>${it.photo?`<span style="cursor:zoom-in;color:var(--info)" onclick="openLightbox('${escH(it.photo)}','${escH(it.modelName)}')" title="Преглед на снимка">👁 снимка</span>`:''}</td>
-    </tr>`).join('');
+    </tr>`;
+    }).join('');
     return`<tr>
       <td style="color:var(--text3);font-family:'DM Mono',monospace;font-size:11px">#${i+1}</td>
       <td>${r.date||'—'}</td>
@@ -1289,6 +1342,10 @@ async function loadCollections(){
   }catch(e){console.error('loadCollections',e);}
 }
 
+function colItemPrice(it){
+  const cat=catalog.find(cc=>cc.id===it.catalogId);
+  return cat?cat.final:(it.unitPrice||0);
+}
 function renderCollections(){
   const el=document.getElementById('collections-list');
   if(!el)return;
@@ -1301,8 +1358,9 @@ function renderCollections(){
       <td>${escH(it.modelName)}</td>
       <td><span class="badge badge-size">${escH(it.size)}</span></td>
       <td style="color:var(--text2)">${it.color?escH(it.color):'—'}</td>
-      <td class="td-num">${it.unitPrice.toFixed(2)} €</td>
+      <td class="td-num">${colItemPrice(it).toFixed(2)} €</td>
     </tr>`).join('');
+    const totalPrice=c.items.reduce((s,it)=>s+colItemPrice(it),0);
     return`<div class="col-card">
       <div class="col-card-header">
         <div class="col-card-title-wrap">
@@ -1310,6 +1368,7 @@ function renderCollections(){
           <div>
             <div class="col-card-title">🎀 ${escH(c.name)}</div>
             ${c.description?`<div class="col-card-desc">${escH(c.description)}</div>`:''}
+            <div class="col-card-summary">Брой: ${c.items.length} модела · Крайна цена: ${totalPrice.toFixed(2)} €</div>
           </div>
         </div>
         <div class="actions">
@@ -1425,21 +1484,28 @@ function openAddCollectionToOrder(){
   if(!collections.length){
     el.innerHTML='<div style="padding:20px;text-align:center;color:var(--text3)">Няма създадени колекции.<br>Създайте колекция от таб „Колекции".</div>';
   }else{
-    el.innerHTML=collections.map((c,i)=>`
+    el.innerHTML=collections.map((c,i)=>{
+      const totalPrice=c.items.reduce((s,it)=>s+colItemPrice(it),0);
+      return`
       <button class="col-picker-btn" onclick="applyCollectionToOrder(${i})">
         <div class="col-picker-name">🎀 ${escH(c.name)}</div>
-        <div class="col-picker-meta">${c.items.length} модела${c.description?' · '+escH(c.description):''}</div>
-      </button>`).join('');
+        <div class="col-picker-meta">${c.items.length} модела · ${totalPrice.toFixed(2)} €${c.description?' · '+escH(c.description):''}</div>
+      </button>`;
+    }).join('');
   }
   document.getElementById('collection-picker-modal').classList.add('open');
 }
 function closeCollectionPicker(){document.getElementById('collection-picker-modal').classList.remove('open')}
 
+function genGroupId(){return'g'+Date.now().toString(36)+Math.random().toString(36).slice(2,7);}
+
 function applyCollectionToOrder(i){
   const c=collections[i];
+  const gid=genGroupId();
+  orderItems.push({isGroupHeader:true,groupId:gid,groupName:c.name});
   c.items.forEach(it=>{
     const catIdx=catalog.findIndex(r=>r.id===it.catalogId);
-    orderItems.push({catalogId:it.catalogId,modelIdx:String(catIdx>=0?catIdx:''),qty:1,color:it.color||''});
+    orderItems.push({catalogId:it.catalogId,modelIdx:String(catIdx>=0?catIdx:''),qty:1,color:it.color||'',photo:'',groupId:gid});
   });
   renderItemRows();
   closeCollectionPicker();
@@ -1559,10 +1625,18 @@ function exportCSV(type){
     ]);
   }else{
     const rows=[['#','Дата','Клиент','Телефон','Модел','Размер','Бройка','Ед.цена €','Сума €','Общо €','Статус','Бележка']];
-    orders.forEach((r,i)=>(r.items||[]).forEach((it,j)=>rows.push([
-      j===0?i+1:'',j===0?r.date:'',j===0?r.client:'',j===0?r.phone:'',
-      it.modelName,it.size,it.qty,it.unitPrice.toFixed(2),it.lineTotal.toFixed(2),
-      j===0?(r.total||0).toFixed(2):'',j===0?r.status:'',j===0?r.note:''])));
+    orders.forEach((r,i)=>(r.items||[]).forEach((it,j)=>{
+      if(it.isGroupHeader){
+        rows.push([j===0?i+1:'',j===0?r.date:'',j===0?r.client:'',j===0?r.phone:'',
+          '🎀 '+it.groupName,'','','','',
+          j===0?(r.total||0).toFixed(2):'',j===0?r.status:'',j===0?r.note:'']);
+        return;
+      }
+      rows.push([
+        j===0?i+1:'',j===0?r.date:'',j===0?r.client:'',j===0?r.phone:'',
+        it.modelName,it.size,it.qty,it.unitPrice.toFixed(2),it.lineTotal.toFixed(2),
+        j===0?(r.total||0).toFixed(2):'',j===0?r.status:'',j===0?r.note:'']);
+    }));
     downloadCSV('Поръчки.csv',rows);
   }
 }
@@ -1595,14 +1669,19 @@ function printCatalogItem(i){
 }
 function printOrder(i){
   const r=orders[i];
-  const iRows=(r.items||[]).map((it,j)=>`<tr style="background:${j%2?'#FAFAF8':'#fff'}">
+  const iRows=(r.items||[]).map((it,j)=>{
+    if(it.isGroupHeader){
+      return`<tr><td colspan="6" style="padding:9px 9px 5px;font-size:12px;font-weight:700;color:#2D5016;border-top:2px solid #C5DCA8">🎀 ${escH(it.groupName)}</td></tr>`;
+    }
+    return`<tr style="background:${j%2?'#FAFAF8':'#fff'}">
     <td style="padding:6px 9px;border-bottom:1px solid #eee;font-weight:500">${escH(it.modelName)}</td>
     <td style="padding:6px 9px;border-bottom:1px solid #eee;color:#2D5016">${escH(it.size)}</td>
     <td style="padding:6px 9px;border-bottom:1px solid #eee;color:#666">${it.color?escH(it.color):'—'}</td>
     <td style="padding:6px 9px;border-bottom:1px solid #eee;text-align:center">${it.qty}</td>
     <td style="padding:6px 9px;border-bottom:1px solid #eee;text-align:right;font-family:monospace">${it.unitPrice.toFixed(2)} €</td>
     <td style="padding:6px 9px;border-bottom:1px solid #eee;text-align:right;font-family:monospace;font-weight:600;color:#2D5016">${it.lineTotal.toFixed(2)} €</td>
-  </tr>`).join('');
+  </tr>`;
+  }).join('');
   const sc={'Нова':'#1A4F8A','В процес':'#B7791F','Готова':'#276749','Доставена':'#C0392B'}[r.status]||'#333';
   const sb={'Нова':'#E8F1FB','В процес':'#FEF3DC','Готова':'#E6F4EE','Доставена':'#FDECEA'}[r.status]||'#f5f5f5';
   openPrintFrame(`<div style="font-family:sans-serif;max-width:760px;margin:0 auto">
