@@ -188,7 +188,7 @@ textarea{resize:vertical;min-height:52px;line-height:1.5}
 .col-items-tbl th{padding:8px 12px;text-align:left;font-size:11px;font-weight:700;color:var(--text2);background:var(--surface2);border-bottom:1px solid var(--border);text-transform:uppercase;letter-spacing:.3px;white-space:nowrap}
 .col-items-tbl td{padding:8px 12px;border-bottom:1px solid var(--border);vertical-align:middle}
 .col-items-tbl tr:last-child td{border-bottom:none}
-.col-item-row{display:grid;grid-template-columns:1fr 120px 90px 28px;gap:6px;align-items:center;padding:7px 10px;border-top:1px solid var(--border);background:var(--surface)}
+.col-item-row{display:grid;grid-template-columns:1fr 110px 64px 90px 90px 28px;gap:6px;align-items:center;padding:7px 10px;border-top:1px solid var(--border);background:var(--surface)}
 .col-item-row select,.col-item-row input{padding:6px 8px;font-size:12px}
 .col-picker-btn{padding:12px 14px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);cursor:pointer;text-align:left;width:100%;transition:background .15s}
 .col-picker-btn:hover{background:var(--accent-light);border-color:var(--accent-mid)}
@@ -645,8 +645,8 @@ th.sortable.active .sort-icon{opacity:1;color:var(--accent)}
    Замени стойностите по-долу с твоите от Supabase →
    Settings → General (URL) и Settings → API (anon key)
    ══════════════════════════════════════════════════════ */
-const SUPABASE_URL = 'https://qewdtgmycenrqfaretmx.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_H2XQ9ggJjuoBOiZdrsKG8Q_iBs6fFY_';
+const SUPABASE_URL = 'ТВОЯТ_SUPABASE_URL_ТУК';
+const SUPABASE_KEY = 'ТВОЯТ_SUPABASE_ANON_KEY_ТУК';
 /* ══════════════════════════════════════════════════════ */
 
 const SB = { url: SUPABASE_URL, key: SUPABASE_KEY };
@@ -1335,7 +1335,7 @@ async function loadCollections(){
       id:c.id, name:c.name, description:c.description||'', image:c.image_url||'',
       items:items.filter(it=>it.collection_id===c.id).map(it=>({
         id:it.id, catalogId:it.catalog_id, modelName:it.model_name,
-        size:it.size, color:it.color||'', unitPrice:+it.unit_price, sortOrder:+it.sort_order
+        size:it.size, color:it.color||'', unitPrice:+it.unit_price, qty:+(it.qty||1), sortOrder:+it.sort_order
       }))
     }));
     renderCollections();
@@ -1346,6 +1346,7 @@ function colItemPrice(it){
   const cat=catalog.find(cc=>cc.id===it.catalogId);
   return cat?cat.final:(it.unitPrice||0);
 }
+function colItemLineTotal(it){return colItemPrice(it)*(it.qty||1);}
 function renderCollections(){
   const el=document.getElementById('collections-list');
   if(!el)return;
@@ -1358,9 +1359,12 @@ function renderCollections(){
       <td>${escH(it.modelName)}</td>
       <td><span class="badge badge-size">${escH(it.size)}</span></td>
       <td style="color:var(--text2)">${it.color?escH(it.color):'—'}</td>
-      <td class="td-num">${colItemPrice(it).toFixed(2)} €</td>
+      <td class="td-num">${it.qty||1} бр.</td>
+      <td class="td-num" style="color:var(--text2)">${colItemPrice(it).toFixed(2)} €</td>
+      <td class="td-num" style="font-weight:600">${colItemLineTotal(it).toFixed(2)} €</td>
     </tr>`).join('');
-    const totalPrice=c.items.reduce((s,it)=>s+colItemPrice(it),0);
+    const totalQty=c.items.reduce((s,it)=>s+(it.qty||1),0);
+    const totalPrice=c.items.reduce((s,it)=>s+colItemLineTotal(it),0);
     return`<div class="col-card">
       <div class="col-card-header">
         <div class="col-card-title-wrap">
@@ -1368,7 +1372,7 @@ function renderCollections(){
           <div>
             <div class="col-card-title">🎀 ${escH(c.name)}</div>
             ${c.description?`<div class="col-card-desc">${escH(c.description)}</div>`:''}
-            <div class="col-card-summary">Брой: ${c.items.length} модела · Крайна цена: ${totalPrice.toFixed(2)} €</div>
+            <div class="col-card-summary">Видове: ${c.items.length} · Общо бройки: ${totalQty} · Крайна цена: ${totalPrice.toFixed(2)} €</div>
           </div>
         </div>
         <div class="actions">
@@ -1378,8 +1382,8 @@ function renderCollections(){
       </div>
       <div class="tbl-wrap">
         <table class="col-items-tbl">
-          <thead><tr><th>Модел</th><th>Размер</th><th>Цвят</th><th>Цена</th></tr></thead>
-          <tbody>${rows||'<tr><td colspan="4" style="text-align:center;color:var(--text3);padding:12px">Няма добавени модели</td></tr>'}</tbody>
+          <thead><tr><th>Модел</th><th>Размер</th><th>Цвят</th><th>Брой</th><th>Ед.цена</th><th>Сума</th></tr></thead>
+          <tbody>${rows||'<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:12px">Няма добавени модели</td></tr>'}</tbody>
         </table>
       </div>
     </div>`;
@@ -1393,26 +1397,27 @@ function openCollectionModal(idx){
   document.getElementById('col-name').value=c?.name||'';
   document.getElementById('col-desc').value=c?.description||'';
   document.getElementById('col-image').value=c?.image||'';
-  colItems=c?.items?c.items.map(it=>({catalogId:it.catalogId,modelName:it.modelName,size:it.size,color:it.color,unitPrice:it.unitPrice})):[];
-  if(!colItems.length)colItems=[{catalogId:'',modelName:'',size:'',color:'',unitPrice:0}];
+  colItems=c?.items?c.items.map(it=>({catalogId:it.catalogId,modelName:it.modelName,size:it.size,color:it.color,unitPrice:it.unitPrice,qty:it.qty||1})):[];
+  if(!colItems.length)colItems=[{catalogId:'',modelName:'',size:'',color:'',unitPrice:0,qty:1}];
   renderColItemRows();
   document.getElementById('collection-modal').classList.add('open');
 }
 function closeCollectionModal(){document.getElementById('collection-modal').classList.remove('open')}
 
 function addCollectionItemRow(){
-  colItems.push({catalogId:'',modelName:'',size:'',color:'',unitPrice:0});
+  colItems.push({catalogId:'',modelName:'',size:'',color:'',unitPrice:0,qty:1});
   renderColItemRows();
 }
 function removeColItemRow(i){colItems.splice(i,1);renderColItemRows()}
 function colItemModelChanged(i,val){
-  if(val===''){colItems[i]={catalogId:'',modelName:'',size:'',color:colItems[i].color||'',unitPrice:0};}
+  if(val===''){colItems[i]={catalogId:'',modelName:'',size:'',color:colItems[i].color||'',unitPrice:0,qty:colItems[i].qty||1};}
   else{
     const r=catalog[parseInt(val)];
-    colItems[i]={catalogId:r.id,modelName:r.model,size:SZ[r.size]||r.size,color:colItems[i].color||'',unitPrice:r.final};
+    colItems[i]={catalogId:r.id,modelName:r.model,size:SZ[r.size]||r.size,color:colItems[i].color||'',unitPrice:r.final,qty:colItems[i].qty||1};
   }
   renderColItemRows();
 }
+function colItemQtyChanged(i,val){colItems[i].qty=parseInt(val)||1;renderColItemRows()}
 
 function renderColItemRows(){
   const container=document.getElementById('col-item-rows');
@@ -1423,13 +1428,17 @@ function renderColItemRows(){
   }
   container.innerHTML=colItems.map((item,i)=>{
     const catIdx=item.catalogId?catalog.findIndex(r=>r.id===item.catalogId):-1;
+    const qty=item.qty||1;
+    const lineStr=item.unitPrice?(item.unitPrice*qty).toFixed(2)+' €':'';
     return`<div class="col-item-row">
       <select onchange="colItemModelChanged(${i},this.value)">
         <option value="">— изберете модел —</option>
         ${catalog.map((r,ci)=>`<option value="${ci}"${catIdx===ci?'selected':''}>${escH(r.model)} · ${SZ[r.size]}</option>`).join('')}
       </select>
       <input type="text" value="${escH(item.color||'')}" placeholder="Цвят..." oninput="colItems[${i}].color=this.value" style="font-size:12px">
+      <input type="number" min="1" value="${qty}" inputmode="numeric" onchange="colItemQtyChanged(${i},this.value)" style="text-align:center">
       <input type="text" readonly value="${item.unitPrice?item.unitPrice.toFixed(2)+' €':''}" style="background:var(--surface2);color:var(--text2);font-family:'DM Mono',monospace;font-size:11px">
+      <input type="text" readonly value="${lineStr}" style="background:var(--accent-light);color:var(--accent);font-family:'DM Mono',monospace;font-size:12px;font-weight:600">
       <button type="button" class="btn btn-sm btn-danger btn-icon" onclick="removeColItemRow(${i})">✕</button>
     </div>`;
   }).join('');
@@ -1460,7 +1469,7 @@ async function saveCollection(){
       await sbPost('flowers_collection_items',{
         collection_id:collId, catalog_id:it.catalogId,
         model_name:it.modelName, size:it.size, color:it.color||'',
-        unit_price:it.unitPrice, sort_order:i
+        unit_price:it.unitPrice, qty:it.qty||1, sort_order:i
       });
     }
     await loadCollections();
@@ -1485,7 +1494,7 @@ function openAddCollectionToOrder(){
     el.innerHTML='<div style="padding:20px;text-align:center;color:var(--text3)">Няма създадени колекции.<br>Създайте колекция от таб „Колекции".</div>';
   }else{
     el.innerHTML=collections.map((c,i)=>{
-      const totalPrice=c.items.reduce((s,it)=>s+colItemPrice(it),0);
+      const totalPrice=c.items.reduce((s,it)=>s+colItemLineTotal(it),0);
       return`
       <button class="col-picker-btn" onclick="applyCollectionToOrder(${i})">
         <div class="col-picker-name">🎀 ${escH(c.name)}</div>
@@ -1505,7 +1514,7 @@ function applyCollectionToOrder(i){
   orderItems.push({isGroupHeader:true,groupId:gid,groupName:c.name});
   c.items.forEach(it=>{
     const catIdx=catalog.findIndex(r=>r.id===it.catalogId);
-    orderItems.push({catalogId:it.catalogId,modelIdx:String(catIdx>=0?catIdx:''),qty:1,color:it.color||'',photo:'',groupId:gid});
+    orderItems.push({catalogId:it.catalogId,modelIdx:String(catIdx>=0?catIdx:''),qty:it.qty||1,color:it.color||'',photo:'',groupId:gid});
   });
   renderItemRows();
   closeCollectionPicker();
